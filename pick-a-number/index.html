@@ -364,7 +364,7 @@
           const hint = guess < targetNumber ? 'higher' : 'lower';
           const remaining = getExpectedRemaining();
           showFeedback(
-            `${guess} is too ${hint}! ${remaining} guesses remaining.`,
+            `Go ${hint}! ${remaining} guesses remaining.`,
             'hint'
           );
           input.value = '';
