@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trivial Games</title>
+  <link rel="stylesheet" href="common/style.css">
+  <style>
+    .site-header {
+      text-align: center;
+      margin-bottom: var(--spacing-2xl);
+    }
+
+    .site-header__title {
+      color: var(--color-primary);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .site-header__subtitle {
+      color: var(--color-text-muted);
+      font-size: var(--font-size-base);
+    }
+
+    .game-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .game-list__item {
+      background-color: var(--color-surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: var(--spacing-lg);
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .game-list__item:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .game-list__link {
+      display: block;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .game-list__link:focus {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+      border-radius: var(--radius-md);
+    }
+
+    .game-list__name {
+      color: var(--color-primary);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .game-list__meta {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <h1 class="site-header__title">Trivial Games</h1>
+    <p class="site-header__subtitle">A collection of simple browser games</p>
+  </header>
+
+  <ul class="game-list">
+    <li class="game-list__item">
+      <a class="game-list__link" href="pick-a-number/index.html">
+        <h2 class="game-list__name">Pick-a-Number</h2>
+        <p class="game-list__meta">Added 2026-04-13</p>
+      </a>
+    </li>
+  </ul>
+</body>
+</html>
