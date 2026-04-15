@@ -64,10 +64,13 @@ npx serve .
 ├── common/
 │   └── style.css           # Shared retro arcade CSS
 ├── pick-a-number/
-│   └── index.html           # Game subdirectory + self-contained HTML
+│   └── index.html          # Game subdirectory + self-contained HTML
+├── coin-flip/
+│   └── index.html          # Coin flip gambling game
 ├── tests/
 │   ├── playwright.config.js
-│   └── smoke.spec.js
+│   ├── pick-a-number.spec.js
+│   └── coin-flip.spec.js
 └── [new-game]/
     └── index.html
 ```
@@ -85,11 +88,40 @@ The `webServer` entry in `playwright.config.js` handles `npx serve .` on port 30
 npx playwright test
 
 # Single spec
-npx playwright test tests/smoke.spec.js
+npx playwright test tests/pick-a-number.spec.js
+npx playwright test tests/coin-flip.spec.js
 
 # Single test
 npx playwright test -g "no console errors"
 ```
+
+## Technical Patterns
+
+### CSS 3D coin flip animation
+Use CSS 3D transforms for flip animations: `.coin-scene { perspective: 600px }` container,
+`.coin { transform-style: preserve-3d }`, and `.coin__face { backface-visibility: hidden }`.
+Heads face (front) shows by default; tails face (back) is rotated 180deg. During a flip,
+`rotateY(1800deg)` over 1.5s gives 5 full rotations with a 15deg X-axis tilt for depth.
+The `.flipping` class triggers the animation; after `animationend`, `.show-heads` or
+`.show-tails` class sets the final resting transform. Both faces always remain in the DOM
+—no JS swapping needed. Pure CSS, no canvas or image dependencies.
+
+### CSS animationend timing with test timeouts
+When a game flow includes a CSS animation before showing a screen (e.g., win/lose after
+a 1.5s coin flip + 500ms setTimeout), total worst-case time approaches 2000ms. Set Playwright
+test timeouts to 5000ms to avoid edge-case flakiness. Use a setTimeout fallback alongside
+the `animationend` event listener as a safety net.
+
+### Named function for event listener cleanup
+When registering one-shot event listeners (animationend, transitionend), store the handler
+as a named function on the game object (`game.coinAnimationHandler = function() { ... }`)
+so it can be removed on cleanup (playAgain, restart). Anonymous functions cannot be removed
+with `removeEventListener`.
+
+### Payout math: bet amount added, not total doubled
+On a correct coin flip guess, cash increases by the bet amount (not doubled). Starting at $10,
+reaching $1000 requires 6-7 correct consecutive all-in bets. Adding the bet amount preserves
+the challenge—doubling the total would trivialize the game.
 
 ## Security Considerations
 
