@@ -291,7 +291,7 @@ test.describe('Coin Flip Game', () => {
     await expect(loseTitle).toContainText('lost');
   });
 
-  test('play again resets for another round and preserves cash', async ({ page }) => {
+  test('play again resets for another round and restores cash to starting $10', async ({ page }) => {
     // Go through a full losing round to trigger lose screen
     // Start with cash $10, bet $10, lose → cash goes to $0, lose screen shows
     await page.evaluate(() => window.coinFlipGame.setCash(10));
@@ -333,8 +333,8 @@ test.describe('Coin Flip Game', () => {
     const inputValue = await page.locator('#bet-input').inputValue();
     expect(inputValue).toBe('');
 
-    // Cash should be preserved at $0 (playAgain does not reset cash)
-    expect(await page.locator('#cash-value').textContent()).toBe('0');
+    // Cash should be reset to starting $10 (playAgain resets cash on game over)
+    expect(await page.locator('#cash-value').textContent()).toBe('10');
   });
 
   test('restart button resets game with $10 cash', async ({ page }) => {
@@ -472,7 +472,7 @@ test.describe('Coin Flip Game', () => {
     expect(finalState).not.toContain('flipping');
   });
 
-  test('result text and play-again button visible after animation', async ({ page }) => {
+  test('result text and play-again button visible after animation, cash preserved on mid-round play again', async ({ page }) => {
     // Set forced result to 'tails'
     await page.evaluate(() => window.coinFlipGame.setFlipResult('tails'));
     await page.evaluate(() => window.coinFlipGame.setCash(20));
@@ -499,6 +499,20 @@ test.describe('Coin Flip Game', () => {
     // Coin should show show-tails
     const coinState = await page.evaluate(() => window.coinFlipGame.getCoinState());
     expect(coinState).toContain('show-tails');
+
+    // Wait for cash animation to finish (600ms) before checking
+    await page.waitForFunction(() => {
+      const el = document.getElementById('cash-change');
+      return el && el.textContent === '';
+    }, { timeout: 3000 });
+
+    // Cash should be $15 after losing $5 bet
+    expect(await page.locator('#cash-value').textContent()).toBe('15');
+
+    // Click Play Again (mid-round, before lose/win screen) — cash should be preserved
+    await playAgainBtn.click();
+    await expect(page.locator('#bet-form')).toBeVisible();
+    expect(await page.locator('#cash-value').textContent()).toBe('15');
   });
 
   test('back link navigates to ../index.html', async ({ page }) => {

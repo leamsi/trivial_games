@@ -288,7 +288,7 @@
       <div class="win-screen__emoji">🎉</div>
       <h2 class="win-screen__title">You Win!</h2>
       <p class="win-screen__cash" id="win-cash"></p>
-      <button class="btn btn--success" onclick="game.playAgain()">Play Again</button>
+      <button class="btn btn--success" onclick="game.playAgain(true)">Play Again</button>
     </div>
 
     <!-- Lose screen (hidden initially) -->
@@ -296,7 +296,7 @@
       <div class="lose-screen__emoji">😢</div>
       <h2 class="lose-screen__title">You lost!</h2>
       <p class="text-muted">Better luck next time!</p>
-      <button class="btn btn--primary mt-lg" onclick="game.playAgain()">Try Again</button>
+      <button class="btn btn--primary mt-lg" onclick="game.playAgain(true)">Try Again</button>
     </div>
   </main>
 
@@ -508,11 +508,12 @@
         // Show Play Again button
         document.getElementById('play-again-btn').style.display = 'block';
 
-        // Check win/lose conditions
+        // Check win/lose conditions — delay before showing game-over screens
+        // so player can enjoy the flip result first
         if (cash >= WIN_THRESHOLD) {
-          setTimeout(() => showWinScreen(), 500);
+          setTimeout(() => showWinScreen(), 1500);
         } else if (cash <= 0) {
-          setTimeout(() => showLoseScreen(), 500);
+          setTimeout(() => showLoseScreen(), 1500);
         }
       }
 
@@ -597,14 +598,19 @@
       }
 
       /**
-       * Play again - reset bet input and show betting UI (does NOT reset cash)
-       * Coin remains visible between rounds.
+       * Play again - reset bet input and show betting UI
+       * @param {boolean} resetCash - If true, reset cash to starting amount (for game over screens)
        */
-      function playAgain() {
+      function playAgain(resetCash) {
+        if (resetCash) {
+          cash = STARTING_CASH;
+          previousCash = STARTING_CASH;
+        }
         betAmount = 0;
         playerChoice = null;
         gamePhase = 'betting';
         pendingCashChange = null;
+        previousCash = STARTING_CASH;
 
         // Clear any pending animation handlers
         if (coinAnimationHandler) {
