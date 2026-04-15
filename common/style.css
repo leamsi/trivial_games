@@ -390,9 +390,29 @@ a:hover {
   z-index: 100;
 }
 
+/* Back to game list link */
+.back-link {
+  position: fixed;
+  top: var(--spacing-md);
+  left: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-heading);
+  font-size: 0.45rem;
+  color: var(--neon-cyan);
+  text-decoration: none;
+  z-index: 100;
+  transition: all var(--transition-fast);
+}
+
+.back-link:hover {
+  color: var(--neon-green);
+  text-shadow: var(--glow-neon-green);
+  transform: translateX(-2px);
+}
+
 @media (max-width: 360px) {
-  .restart-btn {
+  .back-link {
     top: var(--spacing-sm);
-    right: var(--spacing-sm);
+    left: var(--spacing-sm);
   }
 }

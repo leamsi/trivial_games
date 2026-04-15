@@ -32,6 +32,7 @@ npx serve .
 
 ### CSS
 
+- **Back to index link (REQUIRED):** Every game MUST include `<a href="../index.html" class="back-link">← Back to Trivial Games</a>` in the `<body>` so players can navigate back to the game list.
 - **Import shared styles** in every game HTML: `<link rel="stylesheet" href="../common/style.css">`
 - **Use CSS variables** from `common/style.css` — do not hardcode colors, fonts, or spacing values
 - **Retro arcade palette:**
