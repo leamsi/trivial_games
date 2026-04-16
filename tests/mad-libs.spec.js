@@ -126,7 +126,7 @@ test.describe('Mad Libs Game', () => {
     const inputs = page.locator('#inputs-section input');
     const count = await inputs.count();
     for (let i = 0; i < count; i++) {
-      await inputs.nth(i).pressSequentially('FILLED');
+      await inputs.nth(i).fill('FILLED');
     }
     await expect(page.locator('#submit-btn')).toBeEnabled({ timeout: 3000 });
     await page.locator('#submit-btn').click();
@@ -150,8 +150,10 @@ test.describe('Mad Libs Game', () => {
     // Result should be hidden
     await expect(page.locator('#result-display')).toBeHidden();
 
-    // Action buttons should be hidden
-    await expect(page.locator('#action-buttons')).toBeHidden();
+    // Action buttons and submit should be visible
+    await expect(page.locator('#action-buttons')).toBeVisible();
+    await expect(page.locator('#submit-btn')).toBeVisible();
+    await expect(page.locator('button:has-text("Another one")')).toBeVisible();
   });
 
   test('back link navigates to ../index.html', async ({ page }) => {

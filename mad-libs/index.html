@@ -60,11 +60,6 @@
   </style>
 </head>
 <body>
-  <!-- Always visible restart button -->
-  <button class="btn restart-btn" onclick="madLibsGame.reset()" aria-label="Restart game">
-    ↻ Restart
-  </button>
-
   <!-- Back to game list -->
   <a href="../index.html" class="back-link">← Back to Trivial Games</a>
 
@@ -75,30 +70,25 @@
     <!-- Inputs section (populated by JS) -->
     <div class="inputs-section" id="inputs-section" aria-live="polite"></div>
 
-    <!-- Submit button -->
-    <button
-      class="btn btn--primary"
-      id="submit-btn"
-      onclick="madLibsGame.submit()"
-      disabled
-      aria-describedby="submit-hint"
-    >
-      Submit
-    </button>
-    <p id="submit-hint" class="sr-only">Fill in all fields to enable submit</p>
+    <!-- Submit + Another one buttons (always visible) -->
+    <div class="action-buttons" id="action-buttons">
+      <button
+        class="btn btn--primary"
+        id="submit-btn"
+        onclick="madLibsGame.submit()"
+        disabled
+        aria-describedby="submit-hint"
+      >
+        Submit
+      </button>
+      <p id="submit-hint" class="sr-only">Fill in all fields to enable submit</p>
+      <button class="btn btn--success" id="reroll-btn" onclick="madLibsGame.reroll()">
+        🎲 Another one
+      </button>
+    </div>
 
     <!-- Result display (shown after submit) -->
     <div class="result-display hidden" id="result-display" aria-live="polite"></div>
-
-    <!-- Action buttons (shown after submit) -->
-    <div class="action-buttons hidden" id="action-buttons">
-      <button class="btn btn--success" onclick="madLibsGame.reroll()">
-        🎲 Another one
-      </button>
-      <button class="btn" onclick="madLibsGame.reset()">
-        ↻ Restart
-      </button>
-    </div>
   </main>
 
   <script>
@@ -348,6 +338,122 @@
         {
           template: "Doctor, I have a [adjective] [noun] on my [body-part]!",
           placeholders: ["adjective", "noun", "body-part"]
+        },
+        {
+          template: "I put my [noun] in a [noun] and [verb] it all [time-of-day].",
+          placeholders: ["noun", "noun", "verb", "time-of-day"]
+        },
+        {
+          template: "The [noun] is [adjective], the [noun] is [adjective].",
+          placeholders: ["noun", "adjective", "noun", "adjective"]
+        },
+        {
+          template: "All you need is [noun]. And maybe some [noun].",
+          placeholders: ["noun", "noun"]
+        },
+        {
+          template: "I am [person], and I [verb] to [verb] the [noun].",
+          placeholders: ["person", "verb", "verb", "noun"]
+        },
+        {
+          template: "The [noun] of the [noun] will [verb] on [time-of-day].",
+          placeholders: ["noun", "noun", "verb", "time-of-day"]
+        },
+        {
+          template: "What is a [noun]? A [noun] is a [noun] [verb]ed from the [noun] of [noun].",
+          placeholders: ["noun", "noun", "noun", "verb", "noun", "noun"]
+        },
+        {
+          template: "[person] is the [adjective] [noun] of [noun].",
+          placeholders: ["person", "adjective", "noun", "noun"]
+        },
+        {
+          template: "Nobody expects the [adjective] [noun]!",
+          placeholders: ["adjective", "noun"]
+        },
+        {
+          template: "I used to be an [noun], but then I took an [noun] to the [noun].",
+          placeholders: ["noun", "noun", "noun"]
+        },
+        {
+          template: "The [noun] in the [place] has been [verb]ed!",
+          placeholders: ["noun", "place", "verb"]
+        },
+        {
+          template: "It is not a [noun]. It is a [noun] of [noun].",
+          placeholders: ["noun", "noun", "noun"]
+        },
+        {
+          template: "Do you like [adjective] [plural-noun]? Of course you do!",
+          placeholders: ["adjective", "plural-noun"]
+        },
+        {
+          template: "The [adjective] [animal] [verb]ed into the [noun] at [time-of-day].",
+          placeholders: ["adjective", "animal", "verb", "noun", "time-of-day"]
+        },
+        {
+          template: "[person], [person], and [person] walked into a [noun].",
+          placeholders: ["person", "person", "person", "noun"]
+        },
+        {
+          template: "My [family-member] told me: never [verb] without your [noun].",
+          placeholders: ["family-member", "verb", "noun"]
+        },
+        {
+          template: "Warning: [adjective] [plural-noun] may cause [noun].",
+          placeholders: ["adjective", "plural-noun", "noun"]
+        },
+        {
+          template: "The best [plural-noun] are [adjective] and [adjective].",
+          placeholders: ["plural-noun", "adjective", "adjective"]
+        },
+        {
+          template: "I am [adjective]. I [verb] [plural-noun] for [noun].",
+          placeholders: ["adjective", "verb", "plural-noun", "noun"]
+        },
+        {
+          template: "In the [noun] of the [noun], the [noun] [verb]s the [noun].",
+          placeholders: ["noun", "noun", "noun", "verb", "noun"]
+        },
+        {
+          template: "[person] said: [exclamation]! And then [verb]ed the [noun].",
+          placeholders: ["person", "exclamation", "verb", "noun"]
+        },
+        {
+          template: "There are [number] [plural-noun] on the [noun].",
+          placeholders: ["number", "plural-noun", "noun"]
+        },
+        {
+          template: "This is [place], where the [plural-noun] are [adjective] and the [plural-noun] are [adjective].",
+          placeholders: ["place", "plural-noun", "adjective", "plural-noun", "adjective"]
+        },
+        {
+          template: "I went to [place] and saw a [adjective] [animal] [verb]ing a [noun].",
+          placeholders: ["place", "adjective", "animal", "verb", "noun"]
+        },
+        {
+          template: "[verb]ing [plural-noun] since [number]!",
+          placeholders: ["verb", "plural-noun", "number"]
+        },
+        {
+          template: "The [noun] will [verb] at [time-of-day]. Do not be [adjective].",
+          placeholders: ["noun", "verb", "time-of-day", "adjective"]
+        },
+        {
+          template: "I [verb]ed my [noun] and it became a [noun].",
+          placeholders: ["verb", "noun", "noun"]
+        },
+        {
+          template: "Without [noun], there is no [noun].",
+          placeholders: ["noun", "noun"]
+        },
+        {
+          template: "The [adjective] [noun] of [noun] strikes again!",
+          placeholders: ["adjective", "noun", "noun"]
+        },
+        {
+          template: "You shall not [verb]!",
+          placeholders: ["verb"]
         }
       ];
 
@@ -466,12 +572,9 @@
         resultEl.textContent = resultText;
         show(resultEl);
 
-        // Hide inputs and submit button
+        // Hide inputs and submit button, keep reroll visible
         hide(getEl('inputs-section'));
         hide(getEl('submit-btn'));
-
-        // Show action buttons
-        show('action-buttons');
       }
 
       function handleReroll() {
@@ -485,24 +588,6 @@
 
         // Reset UI
         hide(getEl('result-display'));
-        hide('action-buttons');
-        show(getEl('inputs-section'));
-        show(getEl('submit-btn'));
-        getEl('submit-btn').disabled = true;
-      }
-
-      function handleReset() {
-        inputs = [];
-        isSubmitted = false;
-        resultText = '';
-        phraseIndex = pickRandomPhrase();
-
-        var phrase = PHRASES[phraseIndex];
-        renderInputs(phrase.placeholders);
-
-        // Reset UI
-        hide(getEl('result-display'));
-        hide('action-buttons');
         show(getEl('inputs-section'));
         show(getEl('submit-btn'));
         getEl('submit-btn').disabled = true;
@@ -525,7 +610,6 @@
             renderInputs(phrase.placeholders);
 
             hide(getEl('result-display'));
-            hide('action-buttons');
             show(getEl('inputs-section'));
             show(getEl('submit-btn'));
             getEl('submit-btn').disabled = true;
@@ -545,7 +629,7 @@
         },
 
         reset: function() {
-          handleReset();
+          handleReroll();
         }
       };
 
