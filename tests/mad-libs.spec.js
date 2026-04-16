@@ -88,7 +88,8 @@ test.describe('Mad Libs Game', () => {
     // Fill in all inputs with distinct values
     const inputs = page.locator('#inputs-section input');
     for (let i = 0; i < placeholders.length; i++) {
-      await inputs.nth(i).pressSequentially('WORD' + i);
+      await inputs.nth(i).fill('WORD' + i);
+      await page.waitForTimeout(50); // Small delay for event processing
     }
 
     // Submit
