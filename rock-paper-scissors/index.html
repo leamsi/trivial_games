@@ -41,6 +41,50 @@
       color: var(--neon-yellow);
       text-shadow: 0 0 10px rgba(255, 230, 0, 0.6);
     }
+    .result-showcase {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-lg);
+      margin: var(--spacing-lg) 0;
+      font-size: 3rem;
+    }
+    .result-showcase__choice {
+      padding: var(--spacing-md);
+      border-radius: var(--radius-md);
+      transition: all var(--transition-base);
+    }
+    .result-showcase__choice--winner {
+      color: var(--neon-green);
+      text-shadow: var(--glow-neon-green);
+      transform: scale(1.2);
+    }
+    .result-showcase__choice--loser {
+      opacity: 0.4;
+      transform: scale(0.9);
+    }
+    .result-showcase__vs {
+      font-family: var(--font-heading);
+      font-size: 0.8rem;
+      color: var(--color-text-muted);
+    }
+    .result-message {
+      font-family: var(--font-heading);
+      font-size: 0.7rem;
+      margin-bottom: var(--spacing-md);
+    }
+    .result-message--win {
+      color: var(--neon-green);
+      text-shadow: var(--glow-neon-green);
+    }
+    .result-message--lose {
+      color: var(--neon-pink);
+      text-shadow: var(--glow-neon-pink);
+    }
+    .result-message--tie {
+      color: var(--neon-yellow);
+      text-shadow: 0 0 10px rgba(255, 230, 0, 0.6);
+    }
     .play-again-btn, .restart-btn {
       display: block;
       margin-top: var(--spacing-md);
@@ -74,7 +118,14 @@
 
     <div class="animation-scene" id="animation-scene" style="display: none;"></div>
 
-    <div class="result-display" id="result-display" style="display: none;"></div>
+    <div id="result-container" style="display: none;">
+      <div class="result-message" id="result-message"></div>
+      <div class="result-showcase" id="result-showcase">
+        <span class="result-showcase__choice" id="player-choice"></span>
+        <span class="result-showcase__vs">vs</span>
+        <span class="result-showcase__choice" id="computer-choice"></span>
+      </div>
+    </div>
 
     <button class="btn btn--primary play-again-btn" id="play-again-btn" onclick="game.playAgain()" style="display: none;">Play Again</button>
   </main>
@@ -122,25 +173,65 @@
         const computerChoice = forcedResult || computerChoices[Math.floor(Math.random() * 3)];
         
         played++;
-        let resultText = '';
+        let result = '';
+        let outcome = 'tie'; // 'win', 'lose', 'tie'
         
         if (playerChoice === computerChoice) {
-          resultText = `Tie! Both chose ${playerChoice}`;
+          result = 'Tie!';
+          outcome = 'tie';
         } else if (
           (playerChoice === 'rock' && computerChoice === 'scissors') ||
           (playerChoice === 'paper' && computerChoice === 'rock') ||
           (playerChoice === 'scissors' && computerChoice === 'paper')
         ) {
           wins++;
-          resultText = `You Win! ${playerChoice} beats ${computerChoice}`;
+          result = `${capitalize(playerChoice)} beats ${computerChoice}!`;
+          outcome = 'win';
         } else {
-          resultText = `You Lose! ${computerChoice} beats ${playerChoice}`;
+          result = `${capitalize(computerChoice)} beats ${playerChoice}!`;
+          outcome = 'lose';
+        }
+
+        function capitalize(str) {
+          return str.charAt(0).toUpperCase() + str.slice(1);
         }
 
         document.getElementById('animation-scene').style.display = 'none';
-        const resultEl = document.getElementById('result-display');
-        resultEl.textContent = resultText;
-        resultEl.style.display = 'block';
+        
+        // Update result message
+        const messageEl = document.getElementById('result-message');
+        messageEl.textContent = result;
+        messageEl.className = 'result-message';
+        if (outcome === 'win') {
+          messageEl.classList.add('result-message--win');
+          messageEl.textContent = 'You Win! ' + result;
+        } else if (outcome === 'lose') {
+          messageEl.classList.add('result-message--lose');
+          messageEl.textContent = 'You Lose! ' + result;
+        } else {
+          messageEl.classList.add('result-message--tie');
+        }
+        
+        // Update showcase with emojis
+        const playerEl = document.getElementById('player-choice');
+        const computerEl = document.getElementById('computer-choice');
+        playerEl.textContent = emojis[playerChoice];
+        computerEl.textContent = emojis[computerChoice];
+        
+        // Apply winner/loser styling
+        playerEl.className = 'result-showcase__choice';
+        computerEl.className = 'result-showcase__choice';
+        
+        if (outcome === 'win') {
+          playerEl.classList.add('result-showcase__choice--winner');
+          computerEl.classList.add('result-showcase__choice--loser');
+        } else if (outcome === 'lose') {
+          computerEl.classList.add('result-showcase__choice--winner');
+          playerEl.classList.add('result-showcase__choice--loser');
+        }
+        // For ties, both stay neutral (no extra classes)
+        
+        document.getElementById('result-container').style.display = 'block';
         document.getElementById('play-again-btn').style.display = 'block';
         updateScore();
         gamePhase = 'result';
@@ -149,7 +240,7 @@
       function playAgain() {
         gamePhase = 'picking';
         document.getElementById('choice-buttons').style.display = 'flex';
-        document.getElementById('result-display').style.display = 'none';
+        document.getElementById('result-container').style.display = 'none';
         document.getElementById('play-again-btn').style.display = 'none';
         forcedResult = null;
       }

@@ -95,7 +95,7 @@ test.describe('Rock Paper Scissors Game', () => {
     await playAgainBtn.waitFor({ state: 'visible', timeout: 5000 });
 
     // Result should be visible
-    const resultDisplay = page.locator('#result-display');
+    const resultDisplay = page.locator('#result-container');
     await expect(resultDisplay).toBeVisible();
   });
 
@@ -158,7 +158,7 @@ test.describe('Rock Paper Scissors Game', () => {
     await expect(page.locator('.choice-buttons')).toBeVisible();
 
     // Result display should be hidden
-    await expect(page.locator('#result-display')).toBeHidden();
+    await expect(page.locator('#result-container')).toBeHidden();
 
     // Score counters should be preserved
     expect(await page.locator('#wins').textContent()).toBe(wins);
@@ -237,7 +237,7 @@ test.describe('Rock Paper Scissors Game', () => {
     await page.waitForSelector('#play-again-btn', { state: 'visible', timeout: 5000 });
 
     // Result should show loss (paper beats rock)
-    const resultText = await page.locator('#result-display').textContent();
+    const resultText = await page.locator('#result-message').textContent();
     expect(resultText.toLowerCase()).toContain('lose');
 
     // Wins should still be 0 (player lost)
@@ -266,9 +266,9 @@ test.describe('Rock Paper Scissors Game', () => {
     await page.locator('.choice-btn').first().click();
     await page.waitForSelector('#play-again-btn', { state: 'visible', timeout: 5000 });
 
-    const winText = await page.locator('#result-display').textContent();
+    const winText = await page.locator('#result-message').textContent();
     expect(winText.toLowerCase()).toContain('win');
-    expect(winText).toContain('rock');
+    expect(winText.toLowerCase()).toContain('rock');
 
     // Reset and test lose scenario
     await page.evaluate(() => window.rockPaperScissorsGame.reset());
@@ -276,7 +276,7 @@ test.describe('Rock Paper Scissors Game', () => {
     await page.locator('.choice-btn').first().click();
     await page.waitForSelector('#play-again-btn', { state: 'visible', timeout: 5000 });
 
-    const loseText = await page.locator('#result-display').textContent();
+    const loseText = await page.locator('#result-message').textContent();
     expect(loseText.toLowerCase()).toContain('lose');
 
     // Reset and test tie scenario
@@ -285,7 +285,7 @@ test.describe('Rock Paper Scissors Game', () => {
     await page.locator('.choice-btn').first().click();
     await page.waitForSelector('#play-again-btn', { state: 'visible', timeout: 5000 });
 
-    const tieText = await page.locator('#result-display').textContent();
+    const tieText = await page.locator('#result-message').textContent();
     expect(tieText.toLowerCase()).toContain('tie');
   });
 
