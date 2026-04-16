@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mad Libs — Trivial Games</title>
+  <link rel="stylesheet" href="../common/style.css">
+  <style>
+    /* Mad Libs game-specific styles */
+    .inputs-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      margin: var(--spacing-lg) 0;
+    }
+
+    .word-field {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xs);
+      text-align: left;
+    }
+
+    .word-field__label {
+      font-family: var(--font-body);
+      font-size: var(--font-size-lg);
+      color: var(--neon-yellow);
+      text-transform: capitalize;
+    }
+
+    .word-field__input {
+      font-family: var(--font-body);
+      font-size: var(--font-size-lg);
+    }
+
+    .result-display {
+      margin: var(--spacing-xl) 0;
+      padding: var(--spacing-lg);
+      background-color: var(--color-bg);
+      border: 2px solid var(--neon-green);
+      border-radius: var(--radius-md);
+      font-family: var(--font-body);
+      font-size: var(--font-size-xl);
+      color: var(--neon-green);
+      line-height: 1.5;
+      text-align: center;
+      box-shadow: var(--glow-neon-green);
+    }
+
+    .action-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-lg);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Always visible restart button -->
+  <button class="btn restart-btn" onclick="madLibsGame.reset()" aria-label="Restart game">
+    ↻ Restart
+  </button>
+
+  <!-- Back to game list -->
+  <a href="../index.html" class="back-link">← Back to Trivial Games</a>
+
+  <main class="game-card">
+    <h1 class="game-card__title">📝 Mad Libs</h1>
+    <p class="text-muted">Fill in the blanks below, then submit to see the phrase!</p>
+
+    <!-- Inputs section (populated by JS) -->
+    <div class="inputs-section" id="inputs-section" aria-live="polite"></div>
+
+    <!-- Submit button -->
+    <button
+      class="btn btn--primary"
+      id="submit-btn"
+      onclick="madLibsGame.submit()"
+      disabled
+      aria-describedby="submit-hint"
+    >
+      Submit
+    </button>
+    <p id="submit-hint" class="sr-only">Fill in all fields to enable submit</p>
+
+    <!-- Result display (shown after submit) -->
+    <div class="result-display hidden" id="result-display" aria-live="polite"></div>
+
+    <!-- Action buttons (shown after submit) -->
+    <div class="action-buttons hidden" id="action-buttons">
+      <button class="btn btn--success" onclick="madLibsGame.reroll()">
+        🎲 Another one
+      </button>
+      <button class="btn" onclick="madLibsGame.reset()">
+        ↻ Restart
+      </button>
+    </div>
+  </main>
+
+  <script>
+    /**
+     * Mad Libs Game
+     * Fill in the blanks to complete a phrase!
+     */
+    (function() {
+      'use strict';
+
+      // ── Phrase data ────────────────────────────────────────────────────────────
+      // Phrases inspired by Looney Labs FAQ and classic Mad Libs formats.
+      // Each phrase has a template with [placeholder] tokens and matching labels.
+      const PHRASES = [
+        {
+          template: "Roses are [color], violets are [color]. I am [famous-person].",
+          placeholders: ["color", "color", "famous-person"]
+        },
+        {
+          template: "Time to [verb] the [noun]!",
+          placeholders: ["verb", "noun"]
+        },
+        {
+          template: "The [adjective] [animal] went over the [adjective] [object].",
+          placeholders: ["adjective", "animal", "adjective", "object"]
+        },
+        {
+          template: "[noun] happens.",
+          placeholders: ["noun"]
+        },
+        {
+          template: "Houston, we have a [noun].",
+          placeholders: ["noun"]
+        },
+        {
+          template: "Just [verb] the [noun], and [verb] the [noun].",
+          placeholders: ["verb", "noun", "verb", "noun"]
+        },
+        {
+          template: "May the [noun] be with you.",
+          placeholders: ["noun"]
+        },
+        {
+          template: "A [noun] a day keeps the [noun] away.",
+          placeholders: ["noun", "noun"]
+        },
+        {
+          template: "The [adjective] fox jumped over the [adjective] dog.",
+          placeholders: ["adjective", "adjective"]
+        },
+        {
+          template: "I [verb] when I [verb] my [noun] at the [noun].",
+          placeholders: ["verb", "verb", "noun", "noun"]
+        },
+        {
+          template: "It was a [adjective] and [adjective] night.",
+          placeholders: ["adjective", "adjective"]
+        },
+        {
+          template: "[plural-noun] of the [noun]!",
+          placeholders: ["plural-noun", "noun"]
+        },
+        {
+          template: "There is no [noun]. Only [noun].",
+          placeholders: ["noun", "noun"]
+        },
+        {
+          template: "The [noun] of [noun] [verb] in the [time-of-day].",
+          placeholders: ["noun", "noun", "verb", "time-of-day"]
+        },
+        {
+          template: "Say [adjective] to my little [noun]!",
+          placeholders: ["adjective", "noun"]
+        },
+        {
+          template: "You [verb] your [noun] and you [verb] your [noun].",
+          placeholders: ["verb", "noun", "verb", "noun"]
+        },
+        {
+          template: "A [noun] is born.",
+          placeholders: ["noun"]
+        },
+        {
+          template: "To [verb] or not to [verb], that is the [noun].",
+          placeholders: ["verb", "verb", "noun"]
+        },
+        {
+          template: "[exclamation]! I [verb] the [noun]!",
+          placeholders: ["exclamation", "verb", "noun"]
+        },
+        {
+          template: "I [verb] [adjective] [plural-noun] on a [adjective] [noun].",
+          placeholders: ["verb", "adjective", "plural-noun", "adjective", "noun"]
+        },
+        {
+          template: "The [noun] was strong with this one.",
+          placeholders: ["noun"]
+        },
+        {
+          template: "One [noun] to [verb] them all, one [noun] to [verb] them.",
+          placeholders: ["noun", "verb", "noun", "verb"]
+        },
+        {
+          template: "The [noun] has been [verb]ed!",
+          placeholders: ["noun", "verb"]
+        },
+        {
+          template: "My [body-part] is [adjective]!",
+          placeholders: ["body-part", "adjective"]
+        },
+        {
+          template: "The [adjective] [noun] [verb] into the [noun].",
+          placeholders: ["adjective", "noun", "verb", "noun"]
+        },
+        {
+          template: "I like my [noun] with extra [noun].",
+          placeholders: ["noun", "noun"]
+        },
+        {
+          template: "[person] was here.",
+          placeholders: ["person"]
+        },
+        {
+          template: "The [noun] is a lie.",
+          placeholders: ["noun"]
+        },
+        {
+          template: "In the [noun], [verb] the [noun].",
+          placeholders: ["noun", "verb", "noun"]
+        },
+        {
+          template: "[verb] me, [person]!",
+          placeholders: ["verb", "person"]
+        }
+      ];
+
+      // ── Game state ─────────────────────────────────────────────────────────────
+      let phraseIndex = 0;
+      let inputs = [];
+      let isSubmitted = false;
+      let resultText = '';
+
+      // ── DOM helpers ────────────────────────────────────────────────────────────
+      function getEl(id) {
+        return document.getElementById(id);
+      }
+
+      function show(el) {
+        if (typeof el === 'string') el = getEl(el);
+        el.classList.remove('hidden');
+      }
+
+      function hide(el) {
+        if (typeof el === 'string') el = getEl(el);
+        el.classList.add('hidden');
+      }
+
+      // ── Core game logic ────────────────────────────────────────────────────────
+      function pickRandomPhrase() {
+        // Avoid picking the same phrase twice in a row
+        let newIndex;
+        do {
+          newIndex = Math.floor(Math.random() * PHRASES.length);
+        } while (newIndex === phraseIndex && PHRASES.length > 1);
+        return newIndex;
+      }
+
+      function renderInputs(placeholders) {
+        const container = getEl('inputs-section');
+        container.innerHTML = '';
+
+        // Pre-populate inputs array so submit button stays disabled until all filled
+        inputs = placeholders.map(function() { return ''; });
+
+        placeholders.forEach(function(label, i) {
+          // Create label
+          var labelEl = document.createElement('label');
+          labelEl.className = 'word-field__label';
+          labelEl.htmlFor = 'word-' + i;
+          labelEl.textContent = label.replace(/-/g, ' '); // "plural-noun" → "plural noun"
+
+          // Create input
+          var inputEl = document.createElement('input');
+          inputEl.type = 'text';
+          inputEl.id = 'word-' + i;
+          inputEl.className = 'input word-field__input';
+          inputEl.setAttribute('aria-label', 'Enter a ' + label.replace(/-/g, ' '));
+          inputEl.setAttribute('inputmode', 'text');
+          inputEl.setAttribute('autocomplete', 'off');
+          inputEl.dataset.index = i;
+
+          // Listen for input to enable/disable submit
+          inputEl.addEventListener('input', function() {
+            inputs[i] = inputEl.value;
+            updateSubmitButton();
+          });
+
+          // Enter key moves to next input or submits
+          inputEl.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              var next = container.querySelector('#word-' + (i + 1));
+              if (next) {
+                next.focus();
+              } else if (!getEl('submit-btn').disabled) {
+                madLibsGame.submit();
+              }
+            }
+          });
+
+          container.appendChild(labelEl);
+          container.appendChild(inputEl);
+        });
+
+        // Focus first input
+        setTimeout(function() {
+          var first = getEl('word-0');
+          if (first) first.focus();
+        }, 50);
+      }
+
+      function updateSubmitButton() {
+        var allFilled = inputs.length > 0 && inputs.every(function(v) {
+          return v.trim().length > 0;
+        });
+        getEl('submit-btn').disabled = !allFilled;
+      }
+
+      function fillPhrase(template, placeholders) {
+        var result = template;
+        placeholders.forEach(function(placeholder, i) {
+          var value = inputs[i] || '[' + placeholder + ']';
+          // Replace each occurrence of [placeholder] with the value
+          // Use a unique marker to avoid double-replacement
+          result = result.replace('[' + placeholder + ']', value);
+        });
+        return result;
+      }
+
+      function handleSubmit() {
+        if (isSubmitted) return;
+
+        var phrase = PHRASES[phraseIndex];
+        resultText = fillPhrase(phrase.template, phrase.placeholders);
+        isSubmitted = true;
+
+        // Show result
+        var resultEl = getEl('result-display');
+        resultEl.textContent = resultText;
+        show(resultEl);
+
+        // Hide inputs and submit button
+        hide(getEl('inputs-section'));
+        hide(getEl('submit-btn'));
+
+        // Show action buttons
+        show('action-buttons');
+      }
+
+      function handleReroll() {
+        phraseIndex = pickRandomPhrase();
+        inputs = [];
+        isSubmitted = false;
+        resultText = '';
+
+        var phrase = PHRASES[phraseIndex];
+        renderInputs(phrase.placeholders);
+
+        // Reset UI
+        hide(getEl('result-display'));
+        hide('action-buttons');
+        show(getEl('inputs-section'));
+        show(getEl('submit-btn'));
+        getEl('submit-btn').disabled = true;
+      }
+
+      function handleReset() {
+        inputs = [];
+        isSubmitted = false;
+        resultText = '';
+        phraseIndex = pickRandomPhrase();
+
+        var phrase = PHRASES[phraseIndex];
+        renderInputs(phrase.placeholders);
+
+        // Reset UI
+        hide(getEl('result-display'));
+        hide('action-buttons');
+        show(getEl('inputs-section'));
+        show(getEl('submit-btn'));
+        getEl('submit-btn').disabled = true;
+      }
+
+      // ── Public API ─────────────────────────────────────────────────────────────
+      window.madLibsGame = {
+        getPhrase: function() {
+          return PHRASES[phraseIndex];
+        },
+
+        setPhrase: function(n) {
+          if (n >= 0 && n < PHRASES.length) {
+            phraseIndex = n;
+            inputs = [];
+            isSubmitted = false;
+            resultText = '';
+
+            var phrase = PHRASES[phraseIndex];
+            renderInputs(phrase.placeholders);
+
+            hide(getEl('result-display'));
+            hide('action-buttons');
+            show(getEl('inputs-section'));
+            show(getEl('submit-btn'));
+            getEl('submit-btn').disabled = true;
+          }
+        },
+
+        getInputs: function() {
+          return inputs.slice();
+        },
+
+        submit: function() {
+          handleSubmit();
+        },
+
+        reroll: function() {
+          handleReroll();
+        },
+
+        reset: function() {
+          handleReset();
+        }
+      };
+
+      // ── Init ───────────────────────────────────────────────────────────────────
+      function init() {
+        phraseIndex = pickRandomPhrase();
+        inputs = [];
+        var phrase = PHRASES[phraseIndex];
+        renderInputs(phrase.placeholders);
+        getEl('submit-btn').disabled = true;
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>

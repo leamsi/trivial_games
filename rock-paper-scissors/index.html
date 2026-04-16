@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rock Paper Scissors — Trivial Games</title>
+  <link rel="stylesheet" href="../common/style.css">
+  <style>
+    .game-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--spacing-lg);
+    }
+    .choice-buttons {
+      display: flex;
+      gap: var(--spacing-md);
+      margin: var(--spacing-lg) 0;
+    }
+    .choice-btn {
+      padding: var(--spacing-lg);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    .animation-scene {
+      font-size: 4rem;
+      min-height: 5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: var(--spacing-lg) 0;
+      color: var(--neon-cyan);
+      text-shadow: var(--glow-neon-cyan);
+    }
+    .result-display {
+      font-family: var(--font-heading);
+      font-size: 1rem;
+      text-align: center;
+      margin: var(--spacing-lg) 0;
+      color: var(--neon-yellow);
+      text-shadow: 0 0 10px rgba(255, 230, 0, 0.6);
+    }
+    .play-again-btn, .restart-btn {
+      display: block;
+      margin-top: var(--spacing-md);
+    }
+    .score-display {
+      font-family: var(--font-heading);
+      font-size: 0.8rem;
+      color: var(--neon-green);
+      margin-top: var(--spacing-md);
+    }
+  </style>
+</head>
+<body>
+  <button class="btn restart-btn" onclick="game.reset()" aria-label="Restart game">
+    ↻ Restart
+  </button>
+  <a href="../index.html" class="back-link">← Back to Trivial Games</a>
+
+  <main class="game-card">
+    <h1 class="game-card__title">🪨📄✂️ RPS</h1>
+
+    <div class="score-display" id="score-display">
+      Wins: <span id="wins">0</span> | Played: <span id="played">0</span>
+    </div>
+
+    <div class="choice-buttons" id="choice-buttons">
+      <button class="btn choice-btn" onclick="game.handleChoice('rock')">🪨</button>
+      <button class="btn choice-btn" onclick="game.handleChoice('paper')">📄</button>
+      <button class="btn choice-btn" onclick="game.handleChoice('scissors')">✂️</button>
+    </div>
+
+    <div class="animation-scene" id="animation-scene" style="display: none;"></div>
+
+    <div class="result-display" id="result-display" style="display: none;"></div>
+
+    <button class="btn btn--primary play-again-btn" id="play-again-btn" onclick="game.playAgain()" style="display: none;">Play Again</button>
+  </main>
+
+  <script>
+    (function() {
+      'use strict';
+
+      let wins = 0;
+      let played = 0;
+      let gamePhase = 'picking'; // 'picking' | 'animating' | 'result'
+      let forcedResult = null; // for testing
+
+      const choices = ['rock', 'paper', 'scissors'];
+      const emojis = { rock: '🪨', paper: '📄', scissors: '✂️' };
+
+      function updateScore() {
+        document.getElementById('wins').textContent = wins;
+        document.getElementById('played').textContent = played;
+      }
+
+      function handleChoice(choice) {
+        if (gamePhase !== 'picking') return;
+        gamePhase = 'animating';
+        document.getElementById('choice-buttons').style.display = 'none';
+        animateChoice(choice);
+      }
+
+      function animateChoice(playerChoice) {
+        const scene = document.getElementById('animation-scene');
+        scene.style.display = 'flex';
+        let count = 0;
+        const interval = setInterval(() => {
+          scene.textContent = emojis[choices[count % 3]];
+          count++;
+          if (count > 10) {
+            clearInterval(interval);
+            showResult(playerChoice);
+          }
+        }, 100);
+      }
+
+      function showResult(playerChoice) {
+        const computerChoices = ['rock', 'paper', 'scissors'];
+        const computerChoice = forcedResult || computerChoices[Math.floor(Math.random() * 3)];
+        
+        played++;
+        let resultText = '';
+        
+        if (playerChoice === computerChoice) {
+          resultText = `Tie! Both chose ${playerChoice}`;
+        } else if (
+          (playerChoice === 'rock' && computerChoice === 'scissors') ||
+          (playerChoice === 'paper' && computerChoice === 'rock') ||
+          (playerChoice === 'scissors' && computerChoice === 'paper')
+        ) {
+          wins++;
+          resultText = `You Win! ${playerChoice} beats ${computerChoice}`;
+        } else {
+          resultText = `You Lose! ${computerChoice} beats ${playerChoice}`;
+        }
+
+        document.getElementById('animation-scene').style.display = 'none';
+        const resultEl = document.getElementById('result-display');
+        resultEl.textContent = resultText;
+        resultEl.style.display = 'block';
+        document.getElementById('play-again-btn').style.display = 'block';
+        updateScore();
+        gamePhase = 'result';
+      }
+
+      function playAgain() {
+        gamePhase = 'picking';
+        document.getElementById('choice-buttons').style.display = 'flex';
+        document.getElementById('result-display').style.display = 'none';
+        document.getElementById('play-again-btn').style.display = 'none';
+        forcedResult = null;
+      }
+
+      function reset() {
+        wins = 0;
+        played = 0;
+        updateScore();
+        playAgain();
+      }
+
+      // API for testability
+      window.rockPaperScissorsGame = {
+        handleChoice,
+        playAgain,
+        reset,
+        getScore: () => ({ wins, played }),
+        setResult: (choice) => forcedResult = choice, // Force computer choice
+        setTarget: (choice) => forcedResult = choice, // Alias
+        getTarget: () => forcedResult // Alias
+      };
+      window.game = window.rockPaperScissorsGame;
+    })();
+  </script>
+</body>
+</html>
