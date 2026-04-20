@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Math Marathon</title>
+  <link rel="stylesheet" href="../common/style.css">
+  <style>
+    /* Timer bar */
+    .timer-bar {
+      width: 100%;
+      height: 20px;
+      background: var(--color-bg);
+      border: 2px solid var(--neon-green);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin: var(--spacing-md) 0;
+    }
+
+    .timer-bar__fill {
+      height: 100%;
+      width: 100%;
+      background: var(--neon-green);
+      box-shadow: var(--glow-neon-green);
+      transform-origin: left center;
+    }
+
+    /* Math problem display */
+    .problem {
+      font-family: var(--font-heading);
+      font-size: var(--font-size-xl);
+      color: var(--neon-cyan);
+      text-shadow: var(--glow-neon-cyan);
+      margin: var(--spacing-xl) 0 var(--spacing-md);
+      letter-spacing: 0.05em;
+      min-height: 3em;
+    }
+
+    /* Answer input */
+    .answer-input {
+      width: 100%;
+      max-width: 200px;
+      margin: 0 auto var(--spacing-md);
+      text-align: center;
+    }
+
+    /* Score row */
+    .score-row {
+      display: flex;
+      justify-content: center;
+      gap: var(--spacing-xl);
+      margin-top: var(--spacing-md);
+    }
+
+    .score-stat {
+      font-family: var(--font-body);
+      font-size: var(--font-size-lg);
+      color: var(--color-text-muted);
+    }
+
+    .score-stat__value {
+      color: var(--neon-green);
+      font-weight: bold;
+    }
+
+    /* Feedback flash */
+    .input--error {
+      border-color: #ff4444;
+      box-shadow: 0 0 10px rgba(255, 68, 68, 0.7);
+      animation: none;
+    }
+
+    .input--success {
+      border-color: var(--neon-green);
+      box-shadow: var(--glow-neon-green);
+    }
+
+    /* Game over screen */
+    .game-over__score {
+      font-family: var(--font-heading);
+      font-size: var(--font-size-lg);
+      color: var(--neon-pink);
+      text-shadow: var(--glow-neon-pink);
+      margin: var(--spacing-lg) 0 var(--spacing-md);
+    }
+
+    .game-over__best {
+      font-family: var(--font-body);
+      font-size: var(--font-size-lg);
+      color: var(--neon-yellow);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    /* Confetti bounce particles (CSS fallback) */
+    .confetti-particle {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      pointer-events: none;
+      animation: confetti-bounce 1.2s ease-out forwards;
+      z-index: 9999;
+    }
+
+    @keyframes confetti-bounce {
+      0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+
+    /* Hidden screen helper */
+    .hidden { display: none !important; }
+
+    @media (max-width: 360px) {
+      .problem { font-size: var(--font-size-lg); }
+      .score-row { gap: var(--spacing-lg); }
+    }
+  </style>
+</head>
+<body>
+  <a href="../index.html" class="back-link">← Back to Trivial Games</a>
+  <button class="btn restart-btn" id="restartBtn">Restart</button>
+
+  <div class="game-card" style="position: relative;">
+    <h1 class="game-card__title">🧮 Math Marathon</h1>
+
+    <!-- Play Screen -->
+    <div id="playScreen">
+      <div class="timer-bar">
+        <div class="timer-bar__fill" id="timerFill"></div>
+      </div>
+
+      <div class="problem" id="problemDisplay" aria-live="polite">Loading…</div>
+
+      <input
+        id="answerInput"
+        class="input answer-input"
+        type="text"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        autocomplete="off"
+        placeholder="?"
+        aria-label="Your answer"
+      >
+
+      <div class="score-row">
+        <div class="score-stat">Score: <span class="score-stat__value" id="scoreDisplay">0</span></div>
+        <div class="score-stat">Best: <span class="score-stat__value" id="bestDisplay">0</span></div>
+      </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="hidden">
+      <div class="game-over__score" id="finalScore">Score: 0</div>
+      <div class="game-over__best" id="finalBest">Best: 0</div>
+      <button class="btn btn--success" id="playAgainBtn">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+  'use strict';
+
+  (function() {
+    // ── State ────────────────────────────────────────────────────────────────
+    var score = 0;
+    var sessionBest = 0;
+    var correctCount = 0;
+    var currentAnswer = 0;
+    var timeLimit = 10000;
+    var phase = 'playing';
+
+    // Timer internals
+    var rafId = null;
+    var timeoutId = null;
+    var startTime = 0;
+    var totalTime = 0;
+    var timerRunning = false;
+
+    // Override slots for testing
+    var _overrideAnswer = null;
+    var _overrideTimeLimit = null;
+    var _overrideStreak = null;
+
+    // ── DOM refs ────────────────────────────────────────────────────────────
+    var timerFill = document.getElementById('timerFill');
+    var problemDisplay = document.getElementById('problemDisplay');
+    var answerInput = document.getElementById('answerInput');
+    var scoreDisplay = document.getElementById('scoreDisplay');
+    var bestDisplay = document.getElementById('bestDisplay');
+    var playScreen = document.getElementById('playScreen');
+    var gameOverScreen = document.getElementById('gameOverScreen');
+    var finalScore = document.getElementById('finalScore');
+    var finalBest = document.getElementById('finalBest');
+    var restartBtn = document.getElementById('restartBtn');
+    var playAgainBtn = document.getElementById('playAgainBtn');
+
+    // ── Math generation ─────────────────────────────────────────────────────
+    function generateProblem() {
+      var ops = ['+', '-', '\u00d7', '\u00f7']; // +, -, ×, ÷
+      var op = ops[Math.floor(Math.random() * ops.length)];
+      var a, b, ans;
+
+      if (op === '+') {
+        a = randInt(1, 50);
+        b = randInt(1, 50);
+        ans = a + b;
+      } else if (op === '-') {
+        a = randInt(1, 50);
+        b = randInt(1, a); // ensure a >= b
+        ans = a - b;
+      } else if (op === '\u00d7') {
+        a = randInt(2, 12);
+        b = randInt(2, 12);
+        ans = a * b;
+      } else { // ÷ — backwards generation
+        ans = randInt(1, 12);
+        b = randInt(2, 12);
+        a = ans * b;
+      }
+
+      // After 17 correct, extend ranges
+      if (correctCount >= 17) {
+        if (op === '+') {
+          a = randInt(1, 99);
+          b = randInt(1, 99);
+          ans = a + b;
+        } else if (op === '-') {
+          a = randInt(1, 99);
+          b = randInt(1, a);
+          ans = a - b;
+        } else if (op === '\u00d7') {
+          a = randInt(2, 15);
+          b = randInt(2, 12);
+          ans = a * b;
+        } else {
+          ans = randInt(1, 20);
+          b = randInt(2, 15);
+          a = ans * b;
+        }
+      }
+
+      // Apply overrides (for testing)
+      if (_overrideAnswer !== null) {
+        ans = _overrideAnswer;
+      }
+
+      return { a: a, op: op, b: b, answer: ans };
+    }
+
+    function randInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    // ── Timer ────────────────────────────────────────────────────────────────
+    function startTimer() {
+      stopTimer();
+      var effectiveLimit = (_overrideTimeLimit !== null) ? _overrideTimeLimit : timeLimit;
+      startTime = performance.now();
+      totalTime = effectiveLimit;
+      timerRunning = true;
+
+      // RAF for smooth bar animation
+      rafId = requestAnimationFrame(tick);
+
+      // setTimeout as authoritative trigger (handles backgrounded tabs)
+      timeoutId = setTimeout(function() {
+        if (timerRunning) {
+          timerRunning = false;
+          endGame();
+        }
+      }, effectiveLimit);
+    }
+
+    function tick(timestamp) {
+      if (!timerRunning) return;
+      var elapsed = timestamp - startTime;
+      var remaining = totalTime - elapsed;
+      var pct = Math.max(0, remaining / totalTime);
+      timerFill.style.width = (pct * 100) + '%';
+      // If time is up, stop the RAF loop here without calling endGame.
+      // setTimeout is the authoritative game-over trigger; this branch
+      // handles the case where RAF runs normally (tab active).
+      if (remaining <= 0) {
+        timerRunning = false;
+        cancelAnimationFrame(rafId);
+        rafId = null;
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function stopTimer() {
+      timerRunning = false;
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    }
+
+    function resetTimerBar() {
+      timerFill.style.width = '100%';
+    }
+
+    // ── Game logic ───────────────────────────────────────────────────────────
+    function newRound() {
+      var prob = generateProblem();
+      currentAnswer = prob.answer;
+      problemDisplay.textContent = prob.a + ' ' + prob.op + ' ' + prob.b + ' = ?';
+      answerInput.value = '';
+      answerInput.classList.remove('input--error', 'input--success');
+      answerInput.focus();
+      resetTimerBar();
+
+      var effectiveLimit = (_overrideTimeLimit !== null) ? _overrideTimeLimit : timeLimit;
+      startTimer();
+    }
+
+    function submitAnswer(rawValue) {
+      if (phase !== 'playing') return;
+      var val = (typeof rawValue === 'number') ? String(rawValue) : String(rawValue || '');
+      var answerStr = String(currentAnswer);
+
+      if (val === answerStr) {
+        // Correct
+        score++;
+        correctCount++;
+        sessionBest = Math.max(sessionBest, score);
+        scoreDisplay.textContent = score;
+        bestDisplay.textContent = sessionBest;
+
+        // Flash success
+        answerInput.classList.add('input--success');
+        setTimeout(function() { answerInput.classList.remove('input--success'); }, 300);
+
+        stopTimer();
+        newRound();
+      } else {
+        // Wrong
+        answerInput.classList.add('input--error');
+        setTimeout(function() {
+          answerInput.classList.remove('input--error');
+          answerInput.value = '';
+          answerInput.focus();
+        }, 300);
+      }
+    }
+
+    function endGame() {
+      phase = 'gameover';
+      stopTimer();
+      finalScore.textContent = 'Score: ' + score;
+      finalBest.textContent = 'Best: ' + sessionBest;
+      playScreen.classList.add('hidden');
+      gameOverScreen.classList.remove('hidden');
+
+      if (score > 0) {
+        spawnConfetti();
+      }
+    }
+
+    // playAgainGame — Play Again button: score resets, session best persists
+    function playAgainGame() {
+      score = 0;
+      correctCount = 0;
+      timeLimit = 10000;
+      _overrideAnswer = null;
+      _overrideTimeLimit = null;
+      _overrideStreak = null;
+      phase = 'playing';
+      scoreDisplay.textContent = '0';
+      bestDisplay.textContent = sessionBest;
+      gameOverScreen.classList.add('hidden');
+      playScreen.classList.remove('hidden');
+      newRound();
+    }
+
+    // restartGame — Restart button: score resets, session best resets too
+    function restartGame() {
+      score = 0;
+      correctCount = 0;
+      sessionBest = 0;
+      timeLimit = 10000;
+      _overrideAnswer = null;
+      _overrideTimeLimit = null;
+      _overrideStreak = null;
+      phase = 'playing';
+      scoreDisplay.textContent = '0';
+      bestDisplay.textContent = sessionBest;
+      gameOverScreen.classList.add('hidden');
+      playScreen.classList.remove('hidden');
+      newRound();
+    }
+
+    // reset() — full reset for testing API (preserves nothing)
+
+    // ── Confetti (CSS bounce particles + optional canvas-confetti) ──────────
+    function spawnConfetti() {
+      var colors = ['#00ff41', '#ff00de', '#00e5ff', '#ffe600', '#4ecca3'];
+      try {
+        // Try canvas-confetti first
+        if (window.confetti) {
+          window.confetti({ particleCount: 60, spread: 70, colors: colors });
+          return;
+        }
+      } catch (e) { /* fall through to CSS fallback */ }
+
+      // CSS bounce fallback
+      for (var i = 0; i < 40; i++) {
+        (function(idx) {
+          setTimeout(function() {
+            var p = document.createElement('div');
+            p.className = 'confetti-particle';
+            p.style.left = (Math.random() * 100) + 'vw';
+            p.style.top = '-10px';
+            p.style.background = colors[idx % colors.length];
+            p.style.animationDuration = (0.8 + Math.random() * 0.8) + 's';
+            document.body.appendChild(p);
+            setTimeout(function() { p.remove(); }, 1600);
+          }, idx * 25);
+        })(i);
+      }
+    }
+
+    // ── Input handling ────────────────────────────────────────────────────────
+    function handleInput() {
+      var val = answerInput.value;
+      var answerStr = String(currentAnswer);
+      if (val.length === answerStr.length) {
+        submitAnswer(val);
+      }
+    }
+
+    function handleKeydown(e) {
+      var key = e.key;
+      var allow = (
+        key === 'Backspace' ||
+        key === 'Delete' ||
+        key === 'Tab' ||
+        key === 'ArrowLeft' ||
+        key === 'ArrowRight' ||
+        key === 'ArrowUp' ||
+        key === 'ArrowDown'
+      );
+      // Allow ctrl/meta combos (select all, copy, paste)
+      if (e.ctrlKey || e.metaKey) return;
+      if (!/^[0-9]$/.test(key) && !allow) {
+        e.preventDefault();
+      }
+    }
+
+    answerInput.addEventListener('input', handleInput);
+    answerInput.addEventListener('keydown', handleKeydown);
+    restartBtn.addEventListener('click', restartGame);
+    playAgainBtn.addEventListener('click', playAgainGame);
+
+    // ── window.mathMarathonGame API ──────────────────────────────────────────
+    window.mathMarathonGame = {
+      getAnswer:    function() { return currentAnswer; },
+      getScore:     function() { return score; },
+      getSessionBest: function() { return sessionBest; },
+      getStreak:    function() { return correctCount; },
+      getTimeLimit: function() { return (_overrideTimeLimit !== null) ? _overrideTimeLimit : timeLimit; },
+      getPhase:     function() { return phase; },
+
+      setProblem: function(a, op, b, answer) {
+        _overrideAnswer = answer;
+        currentAnswer = answer;
+        problemDisplay.textContent = a + ' ' + op + ' ' + b + ' = ?';
+        answerInput.value = '';
+        answerInput.focus();
+        // Restart timer so the test-controlled problem is playable
+        startTimer();
+      },
+
+      setTimeLimit: function(ms) {
+        _overrideTimeLimit = ms;
+        // Restart timer with the new limit so changes take effect immediately
+        startTimer();
+      },
+
+      setStreak: function(n) {
+        _overrideStreak = n;
+        correctCount = n;
+        timeLimit = Math.max(1500, 10000 - n * 567);
+      },
+
+      submitAnswer: function(value) {
+        submitAnswer(value);
+      },
+
+      reset: function() {
+        sessionBest = 0;
+        restartGame();
+      }
+    };
+
+    // ── Boot ────────────────────────────────────────────────────────────────
+    newRound();
+
+  }());
+  </script>
+</body>
+</html>
