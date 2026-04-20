@@ -8,7 +8,7 @@ const { test, expect } = require('@playwright/test');
  * - Input fields rendered for each placeholder
  * - Submit button disabled until all fields filled
  * - Submit reveals the filled phrase with all replacements
- * - Another one button rerolls to a new phrase and clears inputs
+ * - Another one button is always visible and rerolls to a new phrase (clears inputs)
  * - Back link navigates to ../index.html
  * - window.madLibsGame testability API
  */
@@ -108,15 +108,11 @@ test.describe('Mad Libs Game', () => {
 
     // Result should no longer contain any [placeholder] brackets
     expect(resultText, 'Result should have no unfilled placeholders').not.toMatch(/^\//);
-
-    // Inputs section should be hidden
-    await expect(page.locator('#inputs-section')).toBeHidden();
-
-    // Action buttons should be visible
+    // Action buttons container remains visible (another one is never hidden)
     await expect(page.locator('#action-buttons')).toBeVisible();
 
-    // The Another one button should be present
-    await expect(page.locator('button:has-text(\"Another one\")')).toBeVisible();
+    // The Another one button should be present (always visible, not hidden after submit)
+    await expect(page.locator('button:has-text("Another one")')).toBeVisible();
   });
 
   test('another one rerolls phrase and clears inputs', async ({ page }) => {

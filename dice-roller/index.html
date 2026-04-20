@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dice Roller — Trivial Games</title>
+  <link rel="stylesheet" href="../common/style.css">
+  <style>
+    /* Game-specific styles */
+    .bet-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      margin: var(--spacing-lg) 0;
+    }
+
+    .bet-input-group {
+      display: flex;
+      gap: var(--spacing-sm);
+    }
+
+    .bet-input {
+      flex: 1;
+    }
+
+    .bet-all-btn {
+      flex-shrink: 0;
+      min-width: 90px;
+    }
+
+    .sum-selection {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--spacing-sm);
+      margin: var(--spacing-lg) 0;
+    }
+
+    .sum-btn {
+      padding: var(--spacing-md);
+      font-family: var(--font-heading);
+      font-size: 0.5rem;
+      letter-spacing: 0.05em;
+    }
+
+    .cash-display {
+      display: flex;
+      justify-content: center;
+      margin: var(--spacing-lg) 0;
+      font-family: var(--font-heading);
+      font-size: 0.8rem;
+      color: var(--neon-green);
+      text-shadow: var(--glow-neon-green);
+    }
+
+    .cash-change {
+      font-family: var(--font-heading);
+      font-size: 0.7rem;
+      text-align: center;
+      margin-bottom: var(--spacing-sm);
+      min-height: 1.2em;
+    }
+
+    .cash-change--win {
+      color: var(--color-success);
+    }
+
+    .cash-change--lose {
+      color: var(--color-warning);
+    }
+
+    .dice-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: var(--spacing-lg);
+      margin: var(--spacing-xl) 0;
+      min-height: 140px;
+    }
+
+    /* 3D Die Scene — provides the perspective origin */
+    .die-scene {
+      perspective: 600px;
+      perspective-origin: center center;
+      width: 80px;
+      height: 80px;
+    }
+
+    /* 3D Die Cube — preserves 3D transforms for all child faces */
+    .die {
+      width: 80px;
+      height: 80px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.5s ease-out;
+    }
+
+    /* All 6 faces: 3x3 CSS grid for dot patterns */
+    .die__face {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      background-color: var(--color-surface);
+      border: 3px solid var(--neon-cyan);
+      border-radius: var(--radius-md);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      padding: 6px;
+      box-sizing: border-box;
+      /* Prevent face clipping through adjacent faces */
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+
+    /* Dot cell — occupies one grid area */
+    .die__dot {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Dot is shown via ::before pseudo — grid area set by face */
+    .die__face--1 .die__dot:nth-child(5)::before,
+    .die__face--2 .die__dot:nth-child(3)::before,
+    .die__face--2 .die__dot:nth-child(7)::before,
+    .die__face--3 .die__dot:nth-child(3)::before,
+    .die__face--3 .die__dot:nth-child(5)::before,
+    .die__face--3 .die__dot:nth-child(7)::before,
+    .die__face--4 .die__dot:nth-child(2)::before,
+    .die__face--4 .die__dot:nth-child(3)::before,
+    .die__face--4 .die__dot:nth-child(7)::before,
+    .die__face--4 .die__dot:nth-child(8)::before,
+    .die__face--5 .die__dot:nth-child(2)::before,
+    .die__face--5 .die__dot:nth-child(3)::before,
+    .die__face--5 .die__dot:nth-child(5)::before,
+    .die__face--5 .die__dot:nth-child(7)::before,
+    .die__face--5 .die__dot:nth-child(8)::before,
+    .die__face--6 .die__dot:nth-child(2)::before,
+    .die__face--6 .die__dot:nth-child(3)::before,
+    .die__face--6 .die__dot:nth-child(5)::before,
+    .die__face--6 .die__dot:nth-child(6)::before,
+    .die__face--6 .die__dot:nth-child(7)::before,
+    .die__face--6 .die__dot:nth-child(8)::before {
+      content: '';
+      display: block;
+      width: 16px;
+      height: 16px;
+      background-color: var(--neon-cyan);
+      border-radius: 50%;
+      margin: auto;
+      box-shadow: var(--glow-neon-cyan);
+    }
+
+    /* 3D face positioning — 40px = half of 80px die width */
+    .die__face--front  { transform: rotateY(0deg)   translateZ(40px); }
+    .die__face--back    { transform: rotateY(180deg) translateZ(40px); }
+    .die__face--right   { transform: rotateY(90deg)  translateZ(40px); }
+    .die__face--left    { transform: rotateY(-90deg) translateZ(40px); }
+    .die__face--top     { transform: rotateX(90deg)  translateZ(40px); }
+    .die__face--bottom  { transform: rotateX(-90deg) translateZ(40px); }
+
+    /* Face grid areas for dot positions */
+    .die__face--1 { grid-template-areas: ". . ." ". dot ." ". . ."; }
+    .die__face--1 .die__dot { grid-area: dot; }
+    .die__face--2 { grid-template-areas: ". . dot" ". . ." "dot . ."; }
+    .die__face--2 .die__dot:nth-child(3) { grid-area: 1 / 3; }
+    .die__face--2 .die__dot:nth-child(7) { grid-area: 3 / 1; }
+    .die__face--3 { grid-template-areas: ". . dot" ". dot ." "dot . ."; }
+    .die__face--3 .die__dot:nth-child(3) { grid-area: 1 / 3; }
+    .die__face--3 .die__dot:nth-child(5) { grid-area: 2 / 2; }
+    .die__face--3 .die__dot:nth-child(7) { grid-area: 3 / 1; }
+    .die__face--4 { grid-template-areas: "dot dot" ". ." "dot dot"; }
+    .die__face--4 .die__dot:nth-child(2) { grid-area: 1 / 1; }
+    .die__face--4 .die__dot:nth-child(3) { grid-area: 1 / 2; }
+    .die__face--4 .die__dot:nth-child(7) { grid-area: 3 / 1; }
+    .die__face--4 .die__dot:nth-child(8) { grid-area: 3 / 2; }
+    .die__face--5 { grid-template-areas: "dot dot dot" ". . ." "dot dot dot"; }
+    .die__face--5 .die__dot { visibility: hidden; }
+    .die__face--5 .die__dot:nth-child(2),
+    .die__face--5 .die__dot:nth-child(3),
+    .die__face--5 .die__dot:nth-child(7),
+    .die__face--5 .die__dot:nth-child(8) { visibility: visible; }
+    .die__face--6 { grid-template-areas: "dot dot" "dot dot" "dot dot"; }
+    .die__face--6 .die__dot { visibility: hidden; }
+    .die__face--6 .die__dot:nth-child(2),
+    .die__face--6 .die__dot:nth-child(3),
+    .die__face--6 .die__dot:nth-child(5),
+    .die__face--6 .die__dot:nth-child(6),
+    .die__face--6 .die__dot:nth-child(7),
+    .die__face--6 .die__dot:nth-child(8) { visibility: visible; }
+
+    /* 3s multi-axis tumble animation */
+    @keyframes die-tumble {
+      0%   { transform: rotateX(0deg)   rotateY(0deg)   rotateZ(0deg); }
+      10%  { transform: rotateX(60deg)  rotateY(90deg)   rotateZ(45deg); }
+      20%  { transform: rotateX(120deg) rotateY(180deg)  rotateZ(90deg); }
+      30%  { transform: rotateX(180deg) rotateY(270deg)  rotateZ(135deg); }
+      40%  { transform: rotateX(240deg) rotateY(360deg)  rotateZ(180deg); }
+      50%  { transform: rotateX(300deg) rotateY(450deg)  rotateZ(225deg); }
+      60%  { transform: rotateX(360deg) rotateY(540deg)  rotateZ(270deg); }
+      70%  { transform: rotateX(420deg) rotateY(630deg)  rotateZ(315deg); }
+      80%  { transform: rotateX(480deg) rotateY(720deg)  rotateZ(360deg); }
+      90%  { transform: rotateX(540deg) rotateY(810deg)  rotateZ(405deg); }
+      100% { transform: rotateX(600deg) rotateY(900deg)  rotateZ(450deg); }
+    }
+
+    /* 0.5s settle animation */
+    @keyframes die-settle {
+      0%   { transform: rotateX(600deg) rotateY(900deg) rotateZ(450deg); }
+      40%  { transform: rotateX(625deg) rotateY(920deg) rotateZ(465deg); }
+      70%  { transform: rotateX(615deg) rotateY(910deg) rotateZ(455deg); }
+      100% { transform: rotateX(620deg) rotateY(915deg) rotateZ(458deg); }
+    }
+
+    .die.rolling {
+      animation: die-tumble 3s linear, die-settle 0.5s ease-out 3s;
+    }
+
+    /* Show face N — set final resting rotation for that face */
+    /* Front face (face 1) — default resting state */
+    .die.show-1 { transform: rotateX(-90deg) rotateY(0deg); }
+    .die.show-2 { transform: rotateX(-90deg) rotateY(-90deg); }
+    .die.show-3 { transform: rotateX(-90deg) rotateY(0deg); }
+    .die.show-4 { transform: rotateX(-90deg) rotateY(90deg); }
+    .die.show-5 { transform: rotateX(-90deg) rotateY(180deg); }
+    .die.show-6 { transform: rotateX(0deg) rotateY(0deg); }
+
+    .roll-result {
+      font-family: var(--font-heading);
+      font-size: 1rem;
+      text-align: center;
+      padding: var(--spacing-md);
+      margin: var(--spacing-md) 0;
+      color: var(--neon-cyan);
+      text-shadow: var(--glow-neon-cyan);
+    }
+
+    .roll-result__amount {
+      font-size: 0.7rem;
+      margin-top: var(--spacing-sm);
+    }
+
+    .roll-result__amount--win {
+      color: var(--color-success);
+    }
+
+    .roll-result__amount--lose {
+      color: var(--color-warning);
+    }
+
+    .play-again-btn {
+      display: block;
+      margin: var(--spacing-lg) auto;
+    }
+
+    .win-screen {
+      text-align: center;
+      padding: var(--spacing-xl);
+    }
+
+    .win-screen__emoji {
+      font-size: 4rem;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .win-screen__title {
+      color: var(--color-success);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .win-screen__cash {
+      color: var(--neon-green);
+      margin-bottom: var(--spacing-lg);
+      font-family: var(--font-heading);
+      font-size: 0.8rem;
+    }
+
+    .lose-screen {
+      text-align: center;
+      padding: var(--spacing-xl);
+    }
+
+    .lose-screen__title {
+      color: var(--color-warning);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .lose-screen__emoji {
+      font-size: 3rem;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .selected-sum {
+      font-family: var(--font-heading);
+      font-size: 0.6rem;
+      text-align: center;
+      margin: var(--spacing-sm) 0;
+      color: var(--neon-pink);
+      text-shadow: var(--glow-neon-pink);
+    }
+
+    /* Confetti canvas overlay */
+    #confetti-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    /* Fallback bounce animation for win */
+    .win-animation {
+      animation: confetti-bounce 1s ease-in-out;
+    }
+
+    @keyframes confetti-bounce {
+      0% { transform: scale(1); }
+      25% { transform: scale(1.15) rotate(-5deg); }
+      50% { transform: scale(1.2) rotate(5deg); }
+      75% { transform: scale(1.1) rotate(-3deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+
+    /* Betting UX polish styles */
+    .input-error-msg {
+      color: #e94560;
+      font-family: var(--font-body);
+      font-size: 1rem;
+      text-shadow: 0 0 8px #e94560;
+      margin: 0;
+      min-height: 1.2em;
+    }
+
+    .payout-table {
+      margin: var(--spacing-lg) 0;
+      padding: var(--spacing-md);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: var(--radius-sm);
+      background: rgba(0, 229, 255, 0.05);
+    }
+
+    .payout-table__title {
+      font-family: var(--font-heading);
+      font-size: 0.45rem;
+      color: var(--neon-cyan);
+      margin-bottom: var(--spacing-sm);
+      text-align: center;
+      letter-spacing: 0.1em;
+    }
+
+    .payout-table__grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: var(--spacing-xs);
+    }
+
+    .payout-table__item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 4px 2px;
+      border-radius: var(--radius-sm);
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .payout-table__sum {
+      font-family: var(--font-heading);
+      font-size: 0.45rem;
+      color: var(--neon-cyan);
+    }
+
+    .payout-table__odds {
+      font-family: var(--font-body);
+      font-size: 0.75rem;
+      color: var(--neon-yellow);
+    }
+
+    .selected-sum__odds {
+      font-family: var(--font-body);
+      font-size: 0.85rem;
+      color: var(--neon-yellow);
+      margin-left: var(--spacing-xs);
+    }
+  </style>
+</head>
+<body>
+  <!-- Always visible restart button -->
+  <button class="btn restart-btn" onclick="game.restart()" aria-label="Restart game">
+    ↻ Restart
+  </button>
+
+  <!-- Back to game list -->
+  <a href="../index.html" class="back-link">← Back to Trivial Games</a>
+
+  <main class="game-card" id="game-container">
+    <h1 class="game-card__title">🎲 Dice Roller</h1>
+
+    <!-- Cash change indicator (shown during animation) -->
+    <div class="cash-change" id="cash-change" aria-live="polite"></div>
+
+    <!-- Cash display -->
+    <div class="cash-display" id="cash-display" aria-live="polite">
+      Cash: $<span id="cash-value">10</span>
+    </div>
+
+    <!-- Bet form (shown during betting phase) -->
+    <form class="bet-form" id="bet-form" onsubmit="game.handleBet(event)">
+      <div class="bet-input-group">
+        <input
+          type="number"
+          id="bet-input"
+          class="input bet-input"
+          min="1"
+          placeholder="Enter bet amount"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          required
+          autocomplete="off"
+          aria-label="Bet amount"
+        >
+        <button type="button" class="btn btn--secondary bet-all-btn" onclick="game.betAll()">All In</button>
+      </div>
+      <button type="submit" class="btn btn--primary" id="bet-btn">Place Bet</button>
+      <p class="text-muted" id="max-bet-hint">Max bet: $<span id="max-bet-value">10</span></p>
+      <p id="bet-error" class="input-error-msg" hidden></p>
+    </form>
+
+    <!-- Payout odds reference table -->
+    <div class="payout-table" id="payout-table">
+      <p class="payout-table__title">PAYOUT ODDS</p>
+      <div class="payout-table__grid" id="payout-table-grid">
+        <!-- Generated by JS -->
+      </div>
+    </div>
+
+    <!-- Sum selection buttons (shown after bet) -->
+    <div class="selected-sum" id="selected-sum-display" style="display: none;">
+      Betting on sum: <span id="selected-sum-value">—</span>
+    </div>
+    <div class="sum-selection" id="sum-selection" style="display: none;">
+      <!-- Buttons 2-12 will be generated by JS -->
+    </div>
+
+    <!-- Dice display (shown during/after roll) -->
+    <div class="dice-container" id="dice-container" style="display: none;">
+      <!-- Die 1: 3D cube with 6 faces -->
+      <div class="die-scene">
+        <div class="die" id="die-1">
+          <!-- Front face: 1 dot -->
+          <div class="die__face die__face--front die__face--1">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+          <!-- Back face: 2 dots -->
+          <div class="die__face die__face--back die__face--2">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+          <!-- Right face: 3 dots -->
+          <div class="die__face die__face--right die__face--3">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+          <!-- Left face: 4 dots -->
+          <div class="die__face die__face--left die__face--4">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+          <!-- Top face: 5 dots -->
+          <div class="die__face die__face--top die__face--5">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+          <!-- Bottom face: 6 dots -->
+          <div class="die__face die__face--bottom die__face--6">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Die 2: 3D cube with 6 faces -->
+      <div class="die-scene">
+        <div class="die" id="die-2">
+          <!-- Front face: 1 dot -->
+          <div class="die__face die__face--front die__face--1">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+          <!-- Back face: 2 dots -->
+          <div class="die__face die__face--back die__face--2">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+          <!-- Right face: 3 dots -->
+          <div class="die__face die__face--right die__face--3">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+          <!-- Left face: 4 dots -->
+          <div class="die__face die__face--left die__face--4">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+          <!-- Top face: 5 dots -->
+          <div class="die__face die__face--top die__face--5">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+          <!-- Bottom face: 6 dots -->
+          <div class="die__face die__face--bottom die__face--6">
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+            <span class="die__dot"></span><span class="die__dot"></span><span class="die__dot"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Roll result display (shown after roll) -->
+    <div class="roll-result" id="roll-result" style="display: none;"></div>
+
+    <!-- Play Again button (shown after roll result) -->
+    <button class="btn btn--primary play-again-btn" id="play-again-btn" onclick="game.playAgain()" style="display: none;">Play Again</button>
+
+    <!-- Win screen (hidden initially) -->
+    <div class="win-screen" id="win-screen" style="display: none;">
+      <div class="win-screen__emoji">🎉</div>
+      <h2 class="win-screen__title">You Win!</h2>
+      <p class="win-screen__cash" id="win-cash"></p>
+      <button class="btn btn--success" onclick="game.playAgain(true)">Play Again</button>
+    </div>
+
+    <!-- Lose screen (hidden initially) -->
+    <div class="lose-screen" id="lose-screen" style="display: none;">
+      <div class="lose-screen__emoji">😢</div>
+      <h2 class="lose-screen__title">You lost!</h2>
+      <p class="text-muted">Better luck next time!</p>
+      <button class="btn btn--primary mt-lg" onclick="game.playAgain(true)">Try Again</button>
+    </div>
+  </main>
+
+  <!-- Confetti canvas -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <script>
+    /**
+     * Dice Roller Game
+     * A self-contained dice betting game with payout math based on sum probability.
+     */
+    (function() {
+      'use strict';
+
+      const STARTING_CASH = 10;
+      const WIN_THRESHOLD = 1000;
+
+      // Game state
+      let cash = STARTING_CASH;
+      let betAmount = 0;
+      let chosenSum = null; // 2-12
+      let gamePhase = 'betting'; // 'betting' | 'rolling' | 'result' | 'gameover'
+      let forcedDiceResult = null; // [n, n] for testing
+
+      // Probability-based payout odds (bet * multiplier = win amount):
+      // Sum 2:  p=1/36,  odds 35:1
+      // Sum 3:  p=2/36,  odds 17:1
+      // Sum 4:  p=3/36,  odds 11:1
+      // Sum 5:  p=4/36,  odds 8:1
+      // Sum 6:  p=5/36,  odds 6.2:1
+      // Sum 7:  p=6/36,  odds 5:1 (most common)
+      // Sum 8:  p=5/36,  odds 6.2:1
+      // Sum 9:  p=4/36,  odds 8:1
+      // Sum 10: p=3/36,  odds 11:1
+      // Sum 11: p=2/36,  odds 17:1
+      // Sum 12: p=1/36,  odds 35:1
+      const PAYOUT_ODDS = {
+        2: 35, 3: 17, 4: 11, 5: 8, 6: 6.2, 7: 5,
+        8: 6.2, 9: 8, 10: 11, 11: 17, 12: 35
+      };
+
+      /**
+       * Update the cash display
+       */
+      function updateCashDisplay() {
+        document.getElementById('cash-value').textContent = cash;
+        document.getElementById('max-bet-value').textContent = cash;
+      }
+
+      /**
+       * Generate the payout odds reference table
+       */
+      function generatePayoutTable() {
+        const grid = document.getElementById('payout-table-grid');
+        grid.innerHTML = '';
+        for (let sum = 2; sum <= 12; sum++) {
+          const item = document.createElement('div');
+          item.className = 'payout-table__item';
+          item.innerHTML = '<span class="payout-table__sum">' + sum + '</span><span class="payout-table__odds">' + PAYOUT_ODDS[sum] + ':1</span>';
+          grid.appendChild(item);
+        }
+      }
+
+      /**
+       * Generate sum selection buttons
+       */
+      function generateSumButtons() {
+        const container = document.getElementById('sum-selection');
+        container.innerHTML = '';
+        for (let sum = 2; sum <= 12; sum++) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn btn--primary sum-btn';
+          btn.textContent = sum + ' (' + PAYOUT_ODDS[sum] + ':1)';
+          btn.onclick = () => game.handleSumSelection(sum);
+          container.appendChild(btn);
+        }
+      }
+
+      /**
+       * Show the betting UI
+       */
+      function showBettingUI() {
+        document.getElementById('bet-form').style.display = 'flex';
+        document.getElementById('payout-table').style.display = 'block';
+        document.getElementById('sum-selection').style.display = 'none';
+        document.getElementById('selected-sum-display').style.display = 'none';
+        document.getElementById('dice-container').style.display = 'none';
+        document.getElementById('roll-result').style.display = 'none';
+        document.getElementById('win-screen').style.display = 'none';
+        document.getElementById('lose-screen').style.display = 'none';
+        updateCashDisplay();
+      }
+
+      /**
+       * Show the sum selection UI
+       */
+      function showRollingUI() {
+        document.getElementById('bet-form').style.display = 'none';
+        document.getElementById('payout-table').style.display = 'none';
+        document.getElementById('selected-sum-display').style.display = 'block';
+        if (chosenSum !== null) {
+          document.getElementById('selected-sum-value').textContent = chosenSum + ' (' + PAYOUT_ODDS[chosenSum] + ':1)';
+        } else {
+          document.getElementById('selected-sum-value').textContent = '—';
+        }
+        document.getElementById('sum-selection').style.display = 'grid';
+        document.getElementById('roll-result').style.display = 'none';
+      }
+
+      /**
+       * Handle bet form submission
+       */
+      function handleBet(event) {
+        event.preventDefault();
+
+        if (gamePhase !== 'betting') return;
+
+        const input = document.getElementById('bet-input');
+        const errorEl = document.getElementById('bet-error');
+        const bet = parseInt(input.value, 10);
+
+        // Input validation
+        if (isNaN(bet) || bet <= 0) {
+          input.classList.add('input--error');
+          errorEl.textContent = 'Please enter a valid bet amount greater than $0.';
+          errorEl.hidden = false;
+          return;
+        }
+
+        if (bet > cash) {
+          input.classList.add('input--error');
+          errorEl.textContent = 'Bet exceeds your cash! Choose an amount up to $' + cash + '.';
+          errorEl.hidden = false;
+          return;
+        }
+
+        input.classList.remove('input--error');
+        errorEl.hidden = true;
+        betAmount = bet;
+        gamePhase = 'rolling';
+        showRollingUI();
+      }
+
+      /**
+       * Bet all available cash
+       */
+      function betAll() {
+        const input = document.getElementById('bet-input');
+        input.value = cash;
+      }
+
+      /**
+       * Handle sum selection
+       */
+      function handleSumSelection(sum) {
+        if (gamePhase !== 'rolling') return;
+        chosenSum = sum;
+        document.getElementById('selected-sum-value').textContent = chosenSum + ' (' + PAYOUT_ODDS[chosenSum] + ':1)';
+        rollDice();
+      }
+
+      // Store animation handler references for cleanup
+      let die1AnimationHandler = null;
+      let die2AnimationHandler = null;
+      let containerAnimationHandler = null;
+      let animationFallbackTimeout = null;
+      let cashAnimationInterval = null;
+      let die1EndsReceived = 0;
+      let die2EndsReceived = 0;
+      let diceRollComplete = 0;
+
+      // Store pending cash change for after animation
+      let pendingCashChange = null; // { won: bool, amount: number }
+      let previousCash = STARTING_CASH;
+
+      /**
+       * Animate the cash counter from current value to target value
+       * @param {number} from - Starting value
+       * @param {number} to - Target value
+       * @param {number} duration - Animation duration in ms
+       */
+      function animateCashCounter(from, to, duration) {
+        const cashValueEl = document.getElementById('cash-value');
+        const cashChangeEl = document.getElementById('cash-change');
+        if (!cashValueEl || !cashChangeEl) return;
+
+        const isWin = to > from;
+        const steps = 20;
+        const stepDuration = Math.max(20, duration / steps);
+        const stepAmount = (to - from) / steps;
+        let current = from;
+        let step = 0;
+
+        // Show change indicator
+        cashChangeEl.textContent = isWin ? `+$${to - from}` : `-$${from - to}`;
+        cashChangeEl.className = 'cash-change ' + (isWin ? 'cash-change--win' : 'cash-change--lose');
+
+        if (cashAnimationInterval) {
+          clearInterval(cashAnimationInterval);
+        }
+
+        cashAnimationInterval = setInterval(() => {
+          step++;
+          current = Math.round(from + stepAmount * step);
+
+          if (step >= steps) {
+            current = to;
+            clearInterval(cashAnimationInterval);
+            cashAnimationInterval = null;
+            // Fade out the change indicator after a moment
+            setTimeout(() => {
+              if (cashChangeEl) {
+                cashChangeEl.textContent = '';
+                cashChangeEl.className = 'cash-change';
+              }
+            }, 1000);
+          }
+
+          if (cashValueEl) {
+            cashValueEl.textContent = current;
+          }
+        }, stepDuration);
+      }
+
+      /**
+       * Apply pending cash change with animation (called after roll animation ends)
+       */
+      function applyCashChange() {
+        if (!pendingCashChange) return;
+
+        const newCash = pendingCashChange.won ? previousCash + pendingCashChange.amount : previousCash - pendingCashChange.amount;
+        animateCashCounter(previousCash, newCash, 600);
+        cash = newCash;
+        pendingCashChange = null;
+
+        // Update max bet hint
+        const maxBetEl = document.getElementById('max-bet-value');
+        if (maxBetEl) {
+          maxBetEl.textContent = cash;
+        }
+      }
+
+      /**
+       * Handle dice animation ending — shows result and payout
+       * @param {number} die1 - First die value (1-6)
+       * @param {number} die2 - Second die value (1-6)
+       */
+      function processResult(die1, die2) {
+        console.log('[Dice Roller] Animation phase: settling');
+        die1EndsReceived = 0; // Reset for next roll
+        die2EndsReceived = 0;
+        diceRollComplete = 0; // Reset for next roll
+
+        // Stop rolling animation and show final face via .show-N class
+        const die1El = document.getElementById('die-1');
+        const die2El = document.getElementById('die-2');
+        die1El.classList.remove('rolling');
+        die2El.classList.remove('rolling');
+        die1El.className = 'die show-' + die1;
+        die2El.className = 'die show-' + die2;
+
+        const actualSum = die1 + die2;
+        const won = actualSum === chosenSum;
+        const payout = won ? Math.round(PAYOUT_ODDS[actualSum] * betAmount) : 0;
+        const amount = payout;
+
+        console.log(`[Dice Roller] Result: dice=[${die1},${die2}] sum=${actualSum} chosen=${chosenSum} won=${won} payout=${amount} bet=${betAmount}`);
+
+        // Show result text below dice with win/loss amount
+        const display = document.getElementById('roll-result');
+        const amountClass = won ? 'roll-result__amount--win' : 'roll-result__amount--lose';
+        const amountText = won ? `You WON +$${amount}!` : `You LOST -$${betAmount}`;
+        display.innerHTML = `Sum: ${actualSum}${won ? ' 🎯' : ''}<div class="roll-result__amount ${amountClass}">${amountText}</div>`;
+        display.style.display = 'block';
+
+        // Apply the cash change with animation
+        // Store the correct change amount: payout for wins, bet amount for losses
+        const changeAmount = won ? amount : betAmount;
+        pendingCashChange = { won, amount: changeAmount };
+        const newCash = won ? previousCash + amount : previousCash - betAmount;
+        console.log(`[Dice Roller] Cash transition: ${previousCash} → ${newCash}`);
+        applyCashChange();
+
+        // Show Play Again button
+        document.getElementById('play-again-btn').style.display = 'block';
+
+        // Check win/lose conditions — delay before showing game-over screens
+        if (cash >= WIN_THRESHOLD) {
+          console.log(`[Dice Roller] Win threshold reached: $${cash} >= $${WIN_THRESHOLD}`);
+          setTimeout(() => showWinScreen(), 1500);
+        } else if (cash <= 0) {
+          console.log(`[Dice Roller] Bankrupt: $${cash} <= 0`);
+          setTimeout(() => showLoseScreen(), 1500);
+        }
+      }
+
+      /**
+       * Perform the dice roll
+       */
+      function rollDice() {
+        // Determine roll result
+        let die1, die2;
+        if (forcedDiceResult !== null) {
+          [die1, die2] = forcedDiceResult;
+        } else {
+          die1 = Math.floor(Math.random() * 6) + 1;
+          die2 = Math.floor(Math.random() * 6) + 1;
+        }
+
+        console.log(`[Dice Roller] Animation phase: tumbling`);
+        console.log(`[Dice Roller] Rolling dice: forced=${forcedDiceResult !== null ? 'yes [' + die1 + ',' + die2 + ']' : 'random'}`);
+
+        gamePhase = 'result';
+
+        // Store current cash and pending change (applied after animation)
+        previousCash = cash;
+
+        // Show dice container and trigger roll animation
+        const diceContainer = document.getElementById('dice-container');
+        const die1El = document.getElementById('die-1');
+        const die2El = document.getElementById('die-2');
+
+        diceContainer.style.display = 'flex';
+        die1El.classList.add('rolling');
+        die2El.classList.add('rolling');
+
+        // Hide sum selection buttons
+        document.getElementById('sum-selection').style.display = 'none';
+
+        // Reset dice roll completion counters
+        diceRollComplete = 0;
+        die1EndsReceived = 0;
+        die2EndsReceived = 0;
+
+        // Register per-die animationend listeners (each die fires 2 events: tumble + settle)
+        die1AnimationHandler = function() {
+          die1EndsReceived++;
+          diceRollComplete++;
+          console.log(`[Dice Roller] Die 1 animationend #${die1EndsReceived}`);
+          if (die1EndsReceived >= 2) {
+            die1El.removeEventListener('animationend', die1AnimationHandler);
+            die1AnimationHandler = null;
+            // Clear the fallback since events fired — prevents double-processResult
+            if (animationFallbackTimeout !== null) {
+              clearTimeout(animationFallbackTimeout);
+              animationFallbackTimeout = null;
+            }
+          }
+          // Both dice done when die1 has 2 events AND die2 has 2 events
+          if (die1EndsReceived >= 2 && die2EndsReceived >= 2) {
+            die1EndsReceived = 0;
+            die2EndsReceived = 0;
+            diceRollComplete = 0;
+            processResult(die1, die2);
+          }
+        };
+        die2AnimationHandler = function() {
+          die2EndsReceived++;
+          diceRollComplete++;
+          console.log(`[Dice Roller] Die 2 animationend #${die2EndsReceived}`);
+          if (die2EndsReceived >= 2) {
+            die2El.removeEventListener('animationend', die2AnimationHandler);
+            die2AnimationHandler = null;
+            // Clear the fallback since events fired — prevents double-processResult
+            if (animationFallbackTimeout !== null) {
+              clearTimeout(animationFallbackTimeout);
+              animationFallbackTimeout = null;
+            }
+          }
+          // Both dice done when die1 has 2 events AND die2 has 2 events
+          if (die1EndsReceived >= 2 && die2EndsReceived >= 2) {
+            die1EndsReceived = 0;
+            die2EndsReceived = 0;
+            diceRollComplete = 0;
+            processResult(die1, die2);
+          }
+        };
+        die1El.addEventListener('animationend', die1AnimationHandler);
+        die2El.addEventListener('animationend', die2AnimationHandler);
+
+        // Also register animationend on the container for the checklist requirement
+        // The container fires this after all children animations settle
+        containerAnimationHandler = function() {
+          diceContainer.removeEventListener('animationend', containerAnimationHandler);
+          containerAnimationHandler = null;
+        };
+        diceContainer.addEventListener('animationend', containerAnimationHandler);
+
+        // Fallback: force result display if animationend events never fire
+        // (e.g., when the browser tab is backgrounded during animation)
+        // animationend handlers clear this timeout when events fire, so
+        // if it fires, events were missed — safe to call processResult directly
+        animationFallbackTimeout = setTimeout(() => {
+          console.log('[Dice Roller] Animation phase: settling (fallback)');
+          animationFallbackTimeout = null;
+          // Clean up all handlers
+          if (die1AnimationHandler && die1El) die1El.removeEventListener('animationend', die1AnimationHandler);
+          if (die2AnimationHandler && die2El) die2El.removeEventListener('animationend', die2AnimationHandler);
+          if (containerAnimationHandler && diceContainer) diceContainer.removeEventListener('animationend', containerAnimationHandler);
+          die1AnimationHandler = null;
+          die2AnimationHandler = null;
+          containerAnimationHandler = null;
+          die1EndsReceived = 2;
+          die2EndsReceived = 2;
+          diceRollComplete = 0;
+          processResult(die1, die2);
+        }, 4000);
+      }
+
+      /**
+       * Show win screen with confetti
+       */
+      function showWinScreen() {
+        gamePhase = 'gameover';
+        document.getElementById('dice-container').style.display = 'none';
+        document.getElementById('sum-selection').style.display = 'none';
+        document.getElementById('roll-result').style.display = 'none';
+        document.getElementById('play-again-btn').style.display = 'none';
+        document.getElementById('win-cash').textContent = `You walked away with $${cash}!`;
+        document.getElementById('win-screen').style.display = 'block';
+        celebrate();
+      }
+
+      /**
+       * Show lose screen
+       */
+      function showLoseScreen() {
+        gamePhase = 'gameover';
+        document.getElementById('dice-container').style.display = 'none';
+        document.getElementById('sum-selection').style.display = 'none';
+        document.getElementById('roll-result').style.display = 'none';
+        document.getElementById('play-again-btn').style.display = 'none';
+        document.getElementById('lose-screen').style.display = 'block';
+      }
+
+      /**
+       * Play again - reset bet input and show betting UI
+       * @param {boolean} resetCash - If true, reset cash to starting amount (for game over screens)
+       */
+      function playAgain(resetCash) {
+        if (resetCash) {
+          cash = STARTING_CASH;
+          previousCash = STARTING_CASH;
+        }
+        betAmount = 0;
+        chosenSum = null;
+        gamePhase = 'betting';
+        pendingCashChange = null;
+        previousCash = STARTING_CASH;
+
+        // Clear any pending animation handlers
+        clearAnimationHandlers();
+
+        // Clear cash change indicator
+        const cashChangeEl = document.getElementById('cash-change');
+        if (cashChangeEl) {
+          cashChangeEl.textContent = '';
+          cashChangeEl.className = 'cash-change';
+        }
+
+        // Reset dice to default (no rolling, no show-N class)
+        const die1El = document.getElementById('die-1');
+        const die2El = document.getElementById('die-2');
+        if (die1El) {
+          die1El.classList.remove('rolling');
+          die1El.className = 'die';
+        }
+        if (die2El) {
+          die2El.classList.remove('rolling');
+          die2El.className = 'die';
+        }
+
+        // Hide dice container
+        document.getElementById('dice-container').style.display = 'none';
+
+        // Hide result display and play again button
+        document.getElementById('roll-result').style.display = 'none';
+        document.getElementById('play-again-btn').style.display = 'none';
+
+        document.getElementById('bet-input').value = '';
+        showBettingUI();
+        document.getElementById('bet-input').focus();
+      }
+
+      /**
+       * Clear all animation handlers and intervals
+       */
+      function clearAnimationHandlers() {
+        const die1El = document.getElementById('die-1');
+        const die2El = document.getElementById('die-2');
+        const diceContainer = document.getElementById('dice-container');
+
+        if (die1AnimationHandler && die1El) {
+          die1El.removeEventListener('animationend', die1AnimationHandler);
+          die1AnimationHandler = null;
+        }
+        if (die2AnimationHandler && die2El) {
+          die2El.removeEventListener('animationend', die2AnimationHandler);
+          die2AnimationHandler = null;
+        }
+        if (containerAnimationHandler && diceContainer) {
+          diceContainer.removeEventListener('animationend', containerAnimationHandler);
+          containerAnimationHandler = null;
+        }
+        if (animationFallbackTimeout !== null) {
+          clearTimeout(animationFallbackTimeout);
+          animationFallbackTimeout = null;
+        }
+        if (cashAnimationInterval !== null) {
+          clearInterval(cashAnimationInterval);
+          cashAnimationInterval = null;
+        }
+        die1EndsReceived = 0;
+        die2EndsReceived = 0;
+        diceRollComplete = 0;
+      }
+
+      /**
+       * Full restart - reset everything including cash
+       */
+      function restart() {
+        cash = STARTING_CASH;
+        betAmount = 0;
+        chosenSum = null;
+        gamePhase = 'betting';
+        forcedDiceResult = null;
+        pendingCashChange = null;
+        previousCash = STARTING_CASH;
+
+        // Clear any pending animation handlers
+        clearAnimationHandlers();
+
+        // Clear cash change indicator
+        const cashChangeEl = document.getElementById('cash-change');
+        if (cashChangeEl) {
+          cashChangeEl.textContent = '';
+          cashChangeEl.className = 'cash-change';
+        }
+
+        // Reset dice to default (no rolling, no show-N class)
+        const die1El = document.getElementById('die-1');
+        const die2El = document.getElementById('die-2');
+        if (die1El) {
+          die1El.classList.remove('rolling');
+          die1El.className = 'die';
+        }
+        if (die2El) {
+          die2El.classList.remove('rolling');
+          die2El.className = 'die';
+        }
+
+        // Hide all result/roll elements
+        document.getElementById('dice-container').style.display = 'none';
+        document.getElementById('roll-result').style.display = 'none';
+        document.getElementById('play-again-btn').style.display = 'none';
+
+        showBettingUI();
+        document.getElementById('bet-input').focus();
+      }
+
+      // ====== Testability API ======
+
+      /**
+       * Set cash directly (for testing)
+       */
+      function setCash(n) {
+        cash = n;
+        previousCash = n; // Keep in sync for pending cash change calculations
+        updateCashDisplay();
+      }
+
+      /**
+       * Get current cash (for testing)
+       */
+      function getCash() {
+        return cash;
+      }
+
+      /**
+       * Get current game phase (for testing)
+       */
+      function getPhase() {
+        return gamePhase;
+      }
+
+      /**
+       * Get chosen sum (for testing)
+       */
+      function getTarget() {
+        return chosenSum;
+      }
+
+      /**
+       * Set target sum directly (for testing)
+       */
+      function setTarget(sum) {
+        chosenSum = sum;
+      }
+
+      /**
+       * Force a specific dice result (for testing)
+       * @param {number} die1 - First die value (1-6)
+       * @param {number} die2 - Second die value (1-6)
+       */
+      function setForcedDice(die1, die2) {
+        forcedDiceResult = [die1, die2];
+      }
+
+      /**
+       * Reset the game state (for testing)
+       */
+      function reset() {
+        restart();
+      }
+
+      // ====== Confetti System ======
+
+      /**
+       * Confetti animation using canvas
+       */
+      function launchConfetti() {
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const particles = [];
+        const colors = ['#e94560', '#4ecca3', '#ffc107', '#0f3460', '#fff', '#00ff41', '#ff00de', '#00e5ff'];
+        const particleCount = 150;
+
+        // Create particles
+        for (let i = 0; i < particleCount; i++) {
+          particles.push({
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            vx: (Math.random() - 0.5) * 20,
+            vy: (Math.random() - 0.5) * 20 - 10,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            size: Math.random() * 8 + 4,
+            rotation: Math.random() * 360,
+            rotationSpeed: (Math.random() - 0.5) * 10,
+            life: 1
+          });
+        }
+
+        let animationId;
+        function animate() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          let alive = false;
+          particles.forEach(p => {
+            if (p.life <= 0) return;
+            alive = true;
+
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.5; // gravity
+            p.rotation += p.rotationSpeed;
+            p.life -= 0.01;
+
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation * Math.PI / 180);
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+            ctx.restore();
+          });
+
+          if (alive) {
+            animationId = requestAnimationFrame(animate);
+          } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            canvas.style.display = 'none';
+          }
+        }
+
+        canvas.style.display = 'block';
+        animate();
+
+        // Clean up after animation
+        setTimeout(() => {
+          cancelAnimationFrame(animationId);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          canvas.style.display = 'none';
+        }, 3000);
+      }
+
+      /**
+       * Fallback CSS bounce animation if confetti fails
+       */
+      function fallbackBounceAnimation() {
+        const container = document.getElementById('game-container');
+        container.classList.add('win-animation');
+        setTimeout(() => {
+          container.classList.remove('win-animation');
+        }, 1000);
+      }
+
+      /**
+       * Trigger celebration
+       */
+      function celebrate() {
+        try {
+          launchConfetti();
+        } catch (e) {
+          // Fallback to CSS animation if canvas fails
+          console.warn('Confetti failed, using fallback animation');
+          fallbackBounceAnimation();
+        }
+      }
+
+      // ====== Input Filtering ======
+
+      /**
+       * Filter keydown events for valid input on desktop
+       */
+      function setupInputFilter() {
+        const input = document.getElementById('bet-input');
+
+        input.addEventListener('keydown', function(e) {
+          // Allow: backspace, delete, tab, escape, enter
+          const allowedKeys = [
+            'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+            'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+            'Home', 'End'
+          ];
+
+          if (allowedKeys.includes(e.key)) return;
+
+          if (e.ctrlKey || e.metaKey) {
+            if (['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return;
+          }
+
+          // Allow numbers
+          if (e.key >= '0' && e.key <= '9') return;
+
+          // Block invalid keys
+          e.preventDefault();
+        });
+      }
+
+      // ====== Initialization ======
+
+      /**
+       * Initialize the game
+       */
+      function init() {
+        setupInputFilter();
+        generatePayoutTable();
+        generateSumButtons();
+        showBettingUI();
+        console.log('[Dice Roller] Game initialized, phase:', gamePhase);
+      }
+
+      // Expose game API for testing
+      window.game = {
+        setCash,
+        getCash,
+        getPhase,
+        getTarget,
+        setTarget,
+        setForcedDice,
+        rollDice,
+        betAll,
+        handleBet,
+        handleSumSelection,
+        playAgain,
+        restart,
+        reset
+      };
+
+      // Start when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>
