@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Quiz</title>
+  <link rel="stylesheet" href="../common/style.css">
+  <style>
+    /* Quiz game styles */
+    .question-text {
+      font-family: var(--font-body);
+      font-size: var(--font-size-xl);
+      color: var(--neon-cyan);
+      text-shadow: var(--glow-neon-cyan);
+      margin: var(--spacing-xl) 0 var(--spacing-lg);
+      min-height: 3em;
+      line-height: 1.4;
+    }
+
+    /* Answer buttons */
+    .answers {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .answer-btn {
+      width: 100%;
+      padding: var(--spacing-md) var(--spacing-lg);
+      font-family: var(--font-body);
+      font-size: var(--font-size-lg);
+      color: var(--neon-green);
+      background: var(--color-bg);
+      border: 2px solid var(--neon-green);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      box-shadow: var(--glow-neon-green);
+      text-align: left;
+    }
+
+    .answer-btn:hover {
+      background: var(--neon-green);
+      color: var(--color-bg);
+      box-shadow: 0 0 16px rgba(0, 255, 65, 0.8);
+      transform: translateX(4px);
+    }
+
+    .answer-btn:focus {
+      outline: 2px solid var(--neon-cyan);
+      outline-offset: 2px;
+    }
+
+    /* Progress indicator */
+    .progress-row {
+      display: flex;
+      justify-content: center;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .progress-text {
+      font-family: var(--font-body);
+      font-size: var(--font-size-lg);
+      color: var(--neon-yellow);
+    }
+
+    /* Score row */
+    .score-row {
+      display: flex;
+      justify-content: center;
+      gap: var(--spacing-xl);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .score-stat {
+      font-family: var(--font-body);
+      font-size: var(--font-size-lg);
+      color: var(--color-text-muted);
+    }
+
+    .score-stat__value {
+      color: var(--neon-green);
+      font-weight: bold;
+    }
+
+    /* Review screen */
+    .review-list {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: var(--spacing-lg);
+      text-align: left;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: var(--spacing-sm);
+    }
+
+    .review-item {
+      padding: var(--spacing-md);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .review-item:last-child {
+      border-bottom: none;
+    }
+
+    .review-item__question {
+      color: var(--neon-cyan);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .review-item__answer {
+      font-size: var(--font-size-base);
+    }
+
+    .review-item__answer--correct {
+      color: var(--neon-green);
+    }
+
+    .review-item__answer--wrong {
+      color: #ff4444;
+    }
+
+    .review-item__your-answer {
+      font-size: var(--font-size-base);
+      color: var(--color-text-muted);
+      margin-top: var(--spacing-xs);
+    }
+
+    /* Final score display */
+    .final-score {
+      font-family: var(--font-heading);
+      font-size: var(--font-size-lg);
+      color: var(--neon-pink);
+      text-shadow: var(--glow-neon-pink);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .final-best {
+      font-family: var(--font-body);
+      font-size: var(--font-size-lg);
+      color: var(--neon-yellow);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    /* Review buttons row */
+    .review-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      align-items: center;
+    }
+
+    /* Hidden screen helper */
+    .hidden { display: none !important; }
+
+    /* Confetti bounce particles (CSS fallback) */
+    .confetti-particle {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      pointer-events: none;
+      animation: confetti-bounce 1.2s ease-out forwards;
+      z-index: 9999;
+    }
+
+    @keyframes confetti-bounce {
+      0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+
+    @media (max-width: 360px) {
+      .question-text { font-size: var(--font-size-lg); }
+      .answers { gap: var(--spacing-sm); }
+      .score-row { gap: var(--spacing-lg); }
+      .review-list { max-height: 250px; }
+    }
+  </style>
+</head>
+<body>
+  <a href="../index.html" class="back-link">← Back to Trivial Games</a>
+
+  <div class="game-card" style="position: relative;">
+    <!-- Start Screen -->
+    <div id="start-screen">
+      <h1 class="game-card__title">📝 Simple Quiz</h1>
+      <p class="text-muted mt-md mb-lg">Test your knowledge across 10 questions!</p>
+      <button class="btn btn--success" id="startBtn">Start Quiz</button>
+      <p class="text-muted mt-md" style="font-size: var(--font-size-base);">50+ questions across multiple categories</p>
+    </div>
+
+    <!-- Quiz Screen -->
+    <div id="quiz-screen" class="hidden">
+      <div class="progress-row">
+        <span class="progress-text" id="progressText">Q 1/10</span>
+      </div>
+
+      <div class="question-text" id="questionText" aria-live="polite">Loading…</div>
+
+      <div class="answers" id="answersContainer">
+        <button class="answer-btn" data-index="0">A. —</button>
+        <button class="answer-btn" data-index="1">B. —</button>
+        <button class="answer-btn" data-index="2">C. —</button>
+        <button class="answer-btn" data-index="3">D. —</button>
+      </div>
+
+      <div class="score-row">
+        <div class="score-stat">Score: <span class="score-stat__value" id="scoreDisplay">0</span></div>
+        <div class="score-stat">Best: <span class="score-stat__value" id="bestDisplay">0</span></div>
+      </div>
+    </div>
+
+    <!-- Review Screen -->
+    <div id="review-screen" class="hidden">
+      <h2 class="game-card__title" style="font-size: calc(var(--font-size-xs-heading) * 0.9);">Quiz Complete!</h2>
+      <div class="final-score" id="finalScore">Score: 0/10</div>
+      <div class="final-best" id="finalBest">Session Best: 0</div>
+
+      <div class="review-list" id="reviewList">
+        <!-- Review items injected here -->
+      </div>
+
+      <div class="review-buttons">
+        <button class="btn btn--success" id="playAgainBtn">Play Again</button>
+        <button class="btn" id="restartBtn">Restart (Reset Best)</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  'use strict';
+
+  (function() {
+    // ── QUESTIONS ─────────────────────────────────────────────────────────────
+    // Geography (12 questions)
+    var QUESTIONS = [
+      // Geography
+      { question: 'What is the capital of Australia?', answers: ['Canberra', 'Sydney', 'Melbourne', 'Perth'], correct: 0 },
+      { question: 'Which is the longest river in the world?', answers: ['Amazon', 'Nile', 'Mississippi', 'Yangtze'], correct: 1 },
+      { question: 'Mount Everest is located in which mountain range?', answers: ['Andes', 'Rockies', 'Himalayas', 'Alps'], correct: 2 },
+      { question: 'Which country has the most time zones?', answers: ['Russia', 'USA', 'China', 'France'], correct: 0 },
+      { question: 'The Great Barrier Reef is off the coast of which country?', answers: ['Australia', 'Brazil', 'Indonesia', 'Philippines'], correct: 0 },
+      { question: 'What is the smallest country in the world?', answers: ['Monaco', 'Vatican City', 'San Marino', 'Liechtenstein'], correct: 1 },
+      { question: 'Which desert is the largest in the world?', answers: ['Sahara', 'Gobi', 'Arabian', 'Kalahari'], correct: 0 },
+      { question: 'Which ocean is the deepest?', answers: ['Atlantic', 'Indian', 'Pacific', 'Arctic'], correct: 2 },
+      { question: 'What is the capital of Japan?', answers: ['Osaka', 'Kyoto', 'Tokyo', 'Yokohama'], correct: 2 },
+      { question: 'The Danube river flows through how many countries?', answers: ['7', '9', '10', '11'], correct: 2 },
+      { question: 'Which country has the most natural lakes?', answers: ['USA', 'Canada', 'Russia', 'Finland'], correct: 1 },
+      { question: 'What strait separates Europe from Africa?', answers: ['Gibraltar', 'Bosporus', 'Hormuz', 'Malacca'], correct: 0 },
+      // History (12 questions)
+      { question: 'In which year did World War II end?', answers: ['1943', '1944', '1945', '1946'], correct: 2 },
+      { question: 'Who was the first Emperor of Rome?', answers: ['Julius Caesar', 'Augustus', 'Nero', 'Caligula'], correct: 1 },
+      { question: 'The Berlin Wall fell in which year?', answers: ['1987', '1988', '1989', '1990'], correct: 2 },
+      { question: 'Which civilization built Machu Picchu?', answers: ['Aztec', 'Maya', 'Inca', 'Olmec'], correct: 2 },
+      { question: 'Who discovered America in 1492?', answers: ['Amerigo Vespucci', 'Christopher Columbus', 'Ferdinand Magellan', 'Vasco da Gama'], correct: 1 },
+      { question: 'The French Revolution began in which year?', answers: ['1776', '1789', '1799', '1804'], correct: 1 },
+      { question: 'Which pharaoh was the last ruler of Ancient Egypt?', answers: ['Ramesses II', 'Cleopatra', 'Tutankhamun', 'Akhenaten'], correct: 1 },
+      { question: 'The Renaissance began in which country?', answers: ['France', 'England', 'Germany', 'Italy'], correct: 3 },
+      { question: 'Who was the first woman to win a Nobel Prize?', answers: ['Marie Curie', 'Mother Teresa', 'Jane Addams', 'Pearl Buck'], correct: 0 },
+      { question: 'The Titanic sank in which year?', answers: ['1910', '1911', '1912', '1913'], correct: 2 },
+      { question: 'Which war was fought over the Alamo?', answers: ['Mexican-American', 'Texian Revolution', 'Civil War', 'War of 1812'], correct: 1 },
+      // Pop Culture (14 questions)
+      { question: 'Who played Iron Man in the Marvel movies?', answers: ['Chris Evans', 'Chris Hemsworth', 'Robert Downey Jr.', 'Mark Ruffalo'], correct: 2 },
+      { question: 'What is the highest-grossing film of all time?', answers: ['Titanic', 'Avatar', 'Avengers: Endgame', 'Star Wars: The Force Awakens'], correct: 1 },
+      { question: 'Which band released "Abbey Road"?', answers: ['The Rolling Stones', 'The Beatles', 'Led Zeppelin', 'Pink Floyd'], correct: 1 },
+      { question: 'In which city did the TV show "Friends" take place?', answers: ['Los Angeles', 'Chicago', 'New York City', 'Boston'], correct: 2 },
+      { question: 'Who wrote the Harry Potter series?', answers: ['J.K. Rowling', 'Stephen King', 'George R.R. Martin', 'Neil Gaiman'], correct: 0 },
+      { question: 'What year was the first iPhone released?', answers: ['2005', '2006', '2007', '2008'], correct: 2 },
+      { question: 'Which artist painted "The Starry Night"?', answers: ['Pablo Picasso', 'Claude Monet', 'Vincent van Gogh', 'Salvador Dalí'], correct: 2 },
+      { question: 'What is the name of Batman\'s butler?', answers: ['Jarvis', 'Alfred', 'Geoffrey', 'Winston'], correct: 1 },
+      { question: 'In "The Matrix", what color pill does Neo take?', answers: ['Blue', 'Green', 'Red', 'Yellow'], correct: 2 },
+      { question: 'Who composed the music for "Star Wars"?', answers: ['Hans Zimmer', 'John Williams', 'Howard Shore', 'Danny Elfman'], correct: 1 },
+      { question: 'Which video game franchise features a character named Master Chief?', answers: ['Call of Duty', 'Halo', 'Gears of War', 'Destiny'], correct: 1 },
+      { question: 'In "Friends", what is the name of the coffee shop?', answers: ['The Brew', 'Central Perk', 'Java Joint', 'Café Express'], correct: 1 },
+      { question: 'Who sang "Bad Romance"?', answers: ['Beyoncé', 'Lady Gaga', 'Rihanna', 'Katy Perry'], correct: 1 },
+      { question: 'What is the name of the fictional metal in "Game of Thrones"?', answers: ['Adamantium', 'Valyrian Steel', 'Mithril', 'Orichalcum'], correct: 1 },
+      // Science (12 questions)
+      { question: 'What is the chemical symbol for gold?', answers: ['Ag', 'Au', 'Fe', 'Cu'], correct: 1 },
+      { question: 'How many bones are in the adult human body?', answers: ['186', '206', '226', '246'], correct: 1 },
+      { question: 'What planet is known as the Red Planet?', answers: ['Venus', 'Mars', 'Jupiter', 'Saturn'], correct: 1 },
+      { question: 'What is the speed of light in km/s (approximately)?', answers: ['150,000', '200,000', '300,000', '400,000'], correct: 2 },
+      { question: 'What is the largest organ in the human body?', answers: ['Heart', 'Brain', 'Skin', 'Liver'], correct: 2 },
+      { question: 'What gas do plants absorb from the atmosphere?', answers: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'], correct: 2 },
+      { question: 'How many chromosomes do humans have?', answers: ['23', '44', '46', '48'], correct: 2 },
+      { question: 'What is the hardest natural substance on Earth?', answers: ['Titanium', 'Diamond', 'Quartz', 'Topaz'], correct: 1 },
+      { question: 'Which scientist developed the theory of relativity?', answers: ['Isaac Newton', 'Albert Einstein', 'Stephen Hawking', 'Niels Bohr'], correct: 1 },
+      { question: 'What is the most abundant gas in Earth\'s atmosphere?', answers: ['Oxygen', 'Carbon Dioxide', 'Nitrogen', 'Argon'], correct: 2 },
+      { question: 'How many hearts does an octopus have?', answers: ['1', '2', '3', '4'], correct: 2 },
+      { question: 'What is the nearest star to Earth after the Sun?', answers: ['Proxima Centauri', 'Alpha Centauri A', 'Sirius', 'Barnard\'s Star'], correct: 0 }
+    ];
+    // 50 questions total
+
+    // ── Fisher-Yates Shuffle ─────────────────────────────────────────────────
+    function shuffle(array) {
+      var result = array.slice();
+      for (var i = result.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var temp = result[i];
+        result[i] = result[j];
+        result[j] = temp;
+      }
+      return result;
+    }
+
+    // ── Runtime validation ─────────────────────────────────────────────────────
+    function validateQuestions() {
+      var valid = [];
+      QUESTIONS.forEach(function(q, i) {
+        var num = i + 1;
+        if (!q.question || !Array.isArray(q.answers) || q.answers.length !== 4 ||
+            typeof q.correct !== 'number' || q.correct < 0 || q.correct > 3) {
+          console.error('Question ' + num + ' malformed: missing or invalid fields');
+          return;
+        }
+        valid.push(q);
+      });
+      return valid;
+    }
+
+    // ── State ────────────────────────────────────────────────────────────────
+    var score = 0;
+    var sessionBest = 0;
+    var currentIndex = 0;
+    var phase = 'start';
+    var shuffledQuestions = [];
+    var reviewItems = [];
+    var validQuestions = validateQuestions();
+
+    // ── DOM refs ────────────────────────────────────────────────────────────
+    var startScreen = document.getElementById('start-screen');
+    var quizScreen = document.getElementById('quiz-screen');
+    var reviewScreen = document.getElementById('review-screen');
+    var progressText = document.getElementById('progressText');
+    var questionText = document.getElementById('questionText');
+    var answersContainer = document.getElementById('answersContainer');
+    var scoreDisplay = document.getElementById('scoreDisplay');
+    var bestDisplay = document.getElementById('bestDisplay');
+    var finalScore = document.getElementById('finalScore');
+    var finalBest = document.getElementById('finalBest');
+    var reviewList = document.getElementById('reviewList');
+    var startBtn = document.getElementById('startBtn');
+    var playAgainBtn = document.getElementById('playAgainBtn');
+    var restartBtn = document.getElementById('restartBtn');
+
+    // ── screen navigation ───────────────────────────────────────────────────
+    function showScreen(name) {
+      startScreen.classList.add('hidden');
+      quizScreen.classList.add('hidden');
+      reviewScreen.classList.add('hidden');
+      if (name === 'start') startScreen.classList.remove('hidden');
+      else if (name === 'quiz') quizScreen.classList.remove('hidden');
+      else if (name === 'review') reviewScreen.classList.remove('hidden');
+      phase = name;
+    }
+
+    // ── render current question ───────────────────────────────────────────────
+    function renderQuestion() {
+      var q = shuffledQuestions[currentIndex];
+      questionText.textContent = q.question;
+      var buttons = answersContainer.querySelectorAll('.answer-btn');
+      q.answers.forEach(function(answer, idx) {
+        buttons[idx].textContent = String.fromCharCode(65 + idx) + '. ' + answer;
+      });
+      progressText.textContent = 'Q ' + (currentIndex + 1) + '/10';
+      scoreDisplay.textContent = score;
+      bestDisplay.textContent = sessionBest;
+    }
+
+    // ── render review screen ──────────────────────────────────────────────────
+    function renderReview() {
+      finalScore.textContent = 'Score: ' + score + '/10';
+      finalBest.textContent = 'Session Best: ' + sessionBest;
+
+      reviewList.innerHTML = '';
+      reviewItems.forEach(function(item) {
+        var div = document.createElement('div');
+        div.className = 'review-item';
+
+        var qEl = document.createElement('div');
+        qEl.className = 'review-item__question';
+        qEl.textContent = item.question;
+        div.appendChild(qEl);
+
+        var aEl = document.createElement('div');
+        var isCorrect = item.userIndex === item.correctIndex;
+        aEl.className = 'review-item__answer ' + (isCorrect ? 'review-item__answer--correct' : 'review-item__answer--wrong');
+        aEl.textContent = (isCorrect ? '✓ ' : '✗ ') + item.answers[item.correctIndex];
+        div.appendChild(aEl);
+
+        if (!isCorrect) {
+          var yEl = document.createElement('div');
+          yEl.className = 'review-item__your-answer';
+          yEl.textContent = 'Your answer: ' + item.answers[item.userIndex];
+          div.appendChild(yEl);
+        }
+
+        reviewList.appendChild(div);
+      });
+    }
+
+    // ── implementation ────────────────────────────────────────────────────────
+    function startGame() {
+      score = 0;
+      currentIndex = 0;
+      reviewItems = [];
+      shuffledQuestions = shuffle(validQuestions).slice(0, 10);
+      renderQuestion();
+      showScreen('quiz');
+    }
+
+    function submitAnswer(selectedIndex) {
+      var q = shuffledQuestions[currentIndex];
+      reviewItems.push({
+        question: q.question,
+        answers: q.answers,
+        userIndex: selectedIndex,
+        correctIndex: q.correct
+      });
+      if (selectedIndex === q.correct) {
+        score++;
+      }
+      // After round ends, update sessionBest from total score
+      currentIndex++;
+      if (currentIndex >= 10) {
+        if (score > sessionBest) {
+          sessionBest = score;
+        }
+        renderReview();
+        showScreen('review');
+      } else {
+        renderQuestion();
+      }
+      return { correct: selectedIndex === q.correct, correctIndex: q.correct };
+    }
+
+    function playAgain() {
+      score = 0;
+      currentIndex = 0;
+      reviewItems = [];
+      shuffledQuestions = shuffle(validQuestions).slice(0, 10);
+      renderQuestion();
+      showScreen('quiz');
+      // sessionBest intentionally preserved across rounds
+    }
+
+    function reset() {
+      score = 0;
+      sessionBest = 0;
+      currentIndex = 0;
+      reviewItems = [];
+      showScreen('start');
+    }
+
+    // ── event listeners ──────────────────────────────────────────────────────
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', playAgain);
+    restartBtn.addEventListener('click', reset);
+
+    answersContainer.addEventListener('click', function(e) {
+      var btn = e.target.closest('.answer-btn');
+      if (!btn) return;
+      var idx = parseInt(btn.getAttribute('data-index'), 10);
+      submitAnswer(idx);
+    });
+
+    // ── window.game API ─────────────────────────────────────────────────────
+    window.game = {
+      startGame: startGame,
+      submitAnswer: submitAnswer,
+      getScore: function() { return score; },
+      getSessionBest: function() { return sessionBest; },
+      getReviewItems: function() { return reviewItems; },
+      playAgain: playAgain,
+      reset: reset,
+      getPhase: function() { return phase; },
+      get shuffledQuestions() { return shuffledQuestions; }
+    };
+
+  }());
+  </script>
+</body>
+</html>

@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word Scramble — Trivial Games</title>
+  <link rel="stylesheet" href="../common/style.css">
+  <style>
+    /* Game-specific styles */
+    .tier-selection {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      margin: var(--spacing-lg) 0;
+    }
+
+    .tier-btn {
+      padding: var(--spacing-md) var(--spacing-lg);
+      font-size: 0.6rem;
+    }
+
+    .tier-btn--easy {
+      border-color: var(--neon-green);
+      box-shadow: var(--glow-neon-green);
+    }
+
+    .tier-btn--easy:hover {
+      background-color: var(--neon-green);
+    }
+
+    .tier-btn--medium {
+      border-color: var(--neon-yellow);
+      box-shadow: 0 0 10px rgba(255, 230, 0, 0.6);
+    }
+
+    .tier-btn--medium:hover {
+      background-color: var(--neon-yellow);
+    }
+
+    .tier-btn--hard {
+      border-color: var(--color-primary);
+      box-shadow: var(--glow-primary);
+    }
+
+    .tier-btn--hard:hover {
+      background-color: var(--color-primary);
+    }
+
+    .play-screen {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-lg);
+    }
+
+    .scrambled-display {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: var(--spacing-xs);
+      padding: var(--spacing-lg);
+      min-height: 80px;
+    }
+
+    .scrambled-letter {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 56px;
+      font-family: var(--font-heading);
+      font-size: var(--font-size-xl);
+      color: var(--neon-pink);
+      background-color: var(--color-bg);
+      border: 2px solid var(--neon-pink);
+      border-radius: var(--radius-sm);
+      text-shadow: var(--glow-neon-pink);
+      box-shadow: var(--glow-neon-pink);
+    }
+
+    .scrambled-letter.revealed {
+      color: var(--neon-cyan);
+      border-color: var(--neon-cyan);
+      text-shadow: var(--glow-neon-cyan);
+      box-shadow: var(--glow-neon-cyan);
+    }
+
+    .guess-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+    }
+
+    .guess-input-group {
+      display: flex;
+      gap: var(--spacing-sm);
+    }
+
+    .guess-input {
+      flex: 1;
+    }
+
+    .guess-btn {
+      flex-shrink: 0;
+      min-width: 100px;
+    }
+
+    .stats-row {
+      display: flex;
+      justify-content: space-around;
+      padding: var(--spacing-sm) var(--spacing-md);
+      background-color: var(--color-bg);
+      border-radius: var(--radius-md);
+    }
+
+    .stats-item {
+      text-align: center;
+    }
+
+    .stats-label {
+      display: block;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+    }
+
+    .stats-value {
+      font-size: var(--font-size-lg);
+      font-weight: 600;
+      color: var(--neon-green);
+    }
+
+    .game-over-screen {
+      text-align: center;
+      padding: var(--spacing-lg);
+    }
+
+    .game-over-screen__title {
+      color: var(--color-warning);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .game-over-screen__stats {
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .game-over-screen__word {
+      color: var(--neon-cyan);
+      font-size: var(--font-size-lg);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .review-list {
+      text-align: left;
+      max-height: 200px;
+      overflow-y: auto;
+      margin: var(--spacing-md) auto;
+      padding: var(--spacing-sm);
+      border: 1px solid var(--neon-cyan);
+      border-radius: var(--radius-md);
+    }
+
+    .review-list__item {
+      padding: var(--spacing-xs) var(--spacing-sm);
+      font-size: var(--font-size-md);
+      color: var(--neon-cyan);
+    }
+
+    .review-list__item + .review-list__item {
+      border-top: 1px solid rgba(0, 229, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <!-- Always visible restart button -->
+  <button class="btn restart-btn" onclick="game.reset()" aria-label="Restart game">
+    ↻ Restart
+  </button>
+
+  <!-- Back to game list -->
+  <a href="../index.html" class="back-link">← Back to Trivial Games</a>
+
+  <main class="game-card" id="game-container">
+    <h1 class="game-card__title">🔤 Word Scramble</h1>
+
+    <!-- Tier Selection Screen -->
+    <div id="tier-screen">
+      <p class="text-muted mb-lg">Unscramble the words to score points! How many can you solve?</p>
+      <div class="tier-selection">
+        <button class="btn tier-btn tier-btn--easy" onclick="game.setDifficulty('easy')">
+          🌱 Easy<br><small>3-5 letters</small>
+        </button>
+        <button class="btn tier-btn tier-btn--medium" onclick="game.setDifficulty('medium')">
+          🌿 Medium<br><small>5-7 letters</small>
+        </button>
+        <button class="btn tier-btn tier-btn--hard" onclick="game.setDifficulty('hard')">
+          🔥 Hard<br><small>7+ letters</small>
+        </button>
+      </div>
+    </div>
+
+    <!-- Play Screen -->
+    <div id="play-screen" class="hidden">
+      <div class="stats-row">
+        <div class="stats-item">
+          <span class="stats-label">Attempts</span>
+          <span class="stats-value" id="attempts-remaining">0</span>
+        </div>
+        <div class="stats-item">
+          <span class="stats-label">Score</span>
+          <span class="stats-value" id="current-score">0</span>
+        </div>
+        <div class="stats-item">
+          <span class="stats-label">Max</span>
+          <span class="stats-value" id="max-score">0</span>
+        </div>
+      </div>
+
+      <div class="play-screen">
+        <div class="scrambled-display" id="scrambled-display" aria-label="Scrambled letters"></div>
+
+        <form class="guess-form" id="guess-form" onsubmit="game.handleGuess(event)">
+          <div class="guess-input-group">
+            <input
+              type="text"
+              id="guess-input"
+              class="input guess-input"
+              placeholder="Type your guess..."
+              inputmode="text"
+              autocomplete="off"
+              required
+              aria-label="Your guess"
+            >
+            <button type="submit" class="btn btn--primary guess-btn">Check</button>
+            <button type="button" id="hint-btn" class="btn btn--secondary" disabled onclick="game.useHint()">Hint</button>
+          </div>
+        </form>
+
+        <div id="feedback-area" class="feedback" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="hidden game-over-screen">
+      <h2 class="game-over-screen__title">Game Over!</h2>
+      <div class="game-over-screen__stats">
+        <p>Final Score: <span class="stats-value" id="final-score">0</span></p>
+        <p>Words Solved: <span class="stats-value" id="words-solved">0</span></p>
+        <p class="mt-md">The word was:</p>
+        <p class="game-over-screen__word" id="final-word"></p>
+      </div>
+      <div id="review-list-container" class="hidden">
+        <p class="mt-md">Words You Solved:</p>
+        <div class="review-list" id="review-list"></div>
+      </div>
+      <button class="btn btn--success" onclick="game.reset()">Play Again</button>
+    </div>
+  </main>
+
+  <script>
+    /**
+     * Word Scramble Game
+     * An anagram-solving game with difficulty tiers.
+     */
+    (function() {
+      'use strict';
+
+      // Word lists by difficulty
+      const WORD_LISTS = {
+        easy: [
+          'cat', 'dog', 'sun', 'hat', 'red', 'big', 'run', 'hot', 'cup', 'pen',
+          'box', 'fox', 'map', 'bed', 'leg', 'arm', 'ear', 'eye', 'lip', 'toe',
+          'pig', 'rat', 'bat', 'fish', 'bird', 'tree', 'book', 'rain', 'snow', 'wind',
+          'star', 'moon', 'hand', 'foot', 'door', 'fire', 'lamp', 'desk', 'cake', 'ball'
+        ],
+        medium: [
+          'apple', 'chair', 'house', 'light', 'water', 'plant', 'storm', 'bread', 'train', 'plant',
+          'world', 'river', 'ocean', 'beach', 'cloud', 'night', 'music', 'dance', 'story', 'dream',
+          'heart', 'watch', 'glass', 'paper', 'knife', 'spoon', 'chair', 'table', 'floor', 'wall',
+          'brain', 'space', 'power', 'sound', 'green', 'smile', 'magic', 'peace', 'queen', 'tiger'
+        ],
+        hard: [
+          'mountain', 'champion', 'thunder', 'whisper', 'journey', 'mystery', 'phantom', 'quantum', 'crystal', 'freedom',
+          'festival', 'glamour', 'harmony', 'infinity', 'kingdom', 'library', 'machine', 'nuclear', 'opinion', 'gravity',
+          'paradox', 'question', 'rainbow', 'science', 'together', 'umbrella', 'velocity', 'wonderful', 'xylophone', 'yesterday',
+          'algorithm', 'beautiful', 'celebrate', 'dangerous', 'education', 'fantastic', 'generation', 'hesitation', 'illustration', 'juxtapose',
+          'knowledge', 'legendary', 'magnificent', 'navigation', 'opportunity', 'phenomenon', 'quarantine', 'recognition', 'simulation', 'transportation'
+        ]
+      };
+
+      // Game state
+      let currentDifficulty = null;
+      let currentWord = '';
+      let scrambledWord = '';
+      let attemptsRemaining = 0;
+      let currentScore = 0;
+      let maxScore = 0;
+      let wordsSolved = 0;
+      let lastWordIndex = -1;
+      let gameOver = false;
+      let inputMode = 'tier'; // 'tier' | 'play' | 'gameover'
+      let revealedIndices = [];
+      let solvedWords = [];
+
+      /**
+       * Fisher-Yates shuffle with reshuffle-on-collision
+       */
+      function shuffleWord(word) {
+        const letters = word.split('');
+        let shuffled;
+        let attempts = 0;
+        const maxAttempts = 10;
+
+        do {
+          // Fisher-Yates shuffle
+          for (let i = letters.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [letters[i], letters[j]] = [letters[j], letters[i]];
+          }
+          shuffled = letters.join('');
+          attempts++;
+        } while (shuffled === word && attempts < maxAttempts);
+
+        return shuffled;
+      }
+
+      /**
+       * Get a random word from the current difficulty list (no immediate repeats)
+       */
+      function getRandomWord() {
+        const words = WORD_LISTS[currentDifficulty];
+        let index;
+        let attempts = 0;
+
+        do {
+          index = Math.floor(Math.random() * words.length);
+          attempts++;
+        } while (index === lastWordIndex && attempts < 10 && words.length > 1);
+
+        lastWordIndex = index;
+        return words[index];
+      }
+
+      /**
+       * Use a hint to reveal a random unrevealed letter (costs 2 attempts).
+       * Returns the revealed letter or null if no hint is available.
+       */
+      function useHint() {
+        if (attemptsRemaining < 2) return null;
+
+        const availableIndices = [];
+        for (let i = 0; i < scrambledWord.length; i++) {
+          if (!revealedIndices.includes(i)) {
+            availableIndices.push(i);
+          }
+        }
+
+        if (availableIndices.length === 0) return null;
+
+        const chosenIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+        revealedIndices.push(chosenIndex);
+        attemptsRemaining -= 2;
+
+        updateScrambledDisplay();
+        updateStats();
+
+        return scrambledWord[chosenIndex].toUpperCase();
+      }
+
+      /**
+       * Set difficulty and start a new game
+       */
+      function setDifficulty(difficulty) {
+        if (!WORD_LISTS[difficulty]) return;
+
+        currentDifficulty = difficulty;
+        currentWord = getRandomWord();
+        scrambledWord = shuffleWord(currentWord);
+        attemptsRemaining = currentWord.length + 2;
+        currentScore = 0;
+        wordsSolved = 0;
+        revealedIndices = [];
+        solvedWords = [];
+        gameOver = false;
+        inputMode = 'play';
+
+        showPlayScreen();
+      }
+
+      /**
+       * Show the play screen
+       */
+      function showPlayScreen() {
+        document.getElementById('tier-screen').classList.add('hidden');
+        document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('play-screen').classList.remove('hidden');
+
+        updateScrambledDisplay();
+        updateStats();
+        hideFeedback();
+
+        document.getElementById('guess-input').value = '';
+        document.getElementById('guess-input').focus();
+      }
+
+      /**
+       * Update the scrambled word display
+       */
+      function updateScrambledDisplay() {
+        const container = document.getElementById('scrambled-display');
+        let html = '';
+
+        for (let i = 0; i < scrambledWord.length; i++) {
+          const letter = scrambledWord[i].toUpperCase();
+          const revealedClass = revealedIndices.includes(i) ? ' revealed' : '';
+          html += `<span class="scrambled-letter${revealedClass}">${letter}</span>`;
+        }
+
+        container.innerHTML = html;
+      }
+
+      /**
+       * Update stats display
+       */
+      function updateStats() {
+        document.getElementById('attempts-remaining').textContent = attemptsRemaining;
+        document.getElementById('current-score').textContent = currentScore;
+        document.getElementById('max-score').textContent = maxScore;
+        const hintBtn = document.getElementById('hint-btn');
+        if (hintBtn) {
+          hintBtn.disabled = attemptsRemaining < 2;
+        }
+      }
+
+      /**
+       * Show feedback message
+       */
+      function showFeedback(message, type) {
+        const feedbackArea = document.getElementById('feedback-area');
+        feedbackArea.className = `feedback feedback--${type}`;
+        feedbackArea.textContent = message;
+        feedbackArea.style.display = 'block';
+      }
+
+      /**
+       * Hide feedback message
+       */
+      function hideFeedback() {
+        document.getElementById('feedback-area').style.display = 'none';
+      }
+
+      /**
+       * Handle guess submission
+       */
+      function handleGuess(event) {
+        event.preventDefault();
+
+        if (gameOver || inputMode !== 'play') return;
+
+        const input = document.getElementById('guess-input');
+        const guess = input.value.trim().toLowerCase();
+
+        if (!guess) {
+          showFeedback('Please enter a guess!', 'error');
+          return;
+        }
+
+        attemptsRemaining--;
+
+        if (guess === currentWord.toLowerCase()) {
+          // Correct guess!
+          currentScore++;
+          if (currentScore > maxScore) {
+            maxScore = currentScore;
+          }
+          wordsSolved++;
+          solvedWords.push(currentWord.toUpperCase());
+          showFeedback(`Correct! "${currentWord.toUpperCase()}"`, 'success');
+
+          // Get next word after brief delay
+          setTimeout(() => {
+            currentWord = getRandomWord();
+            scrambledWord = shuffleWord(currentWord);
+            attemptsRemaining = currentWord.length + 2;
+            revealedIndices = [];
+            updateScrambledDisplay();
+            updateStats();
+            hideFeedback();
+            input.value = '';
+            input.focus();
+          }, 1500);
+        } else if (attemptsRemaining <= 0) {
+          // Game over
+          showGameOver();
+        } else {
+          // Wrong guess
+          showFeedback(`Try again! ${attemptsRemaining} attempts left.`, 'hint');
+          input.value = '';
+          input.focus();
+        }
+
+        updateStats();
+      }
+
+      /**
+       * Show game over screen
+       */
+      function showGameOver() {
+        gameOver = true;
+        inputMode = 'gameover';
+        document.getElementById('play-screen').classList.add('hidden');
+        document.getElementById('final-score').textContent = currentScore;
+        document.getElementById('words-solved').textContent = wordsSolved;
+        document.getElementById('final-word').textContent = currentWord.toUpperCase();
+        document.getElementById('game-over-screen').classList.remove('hidden');
+
+        // Populate review list
+        const container = document.getElementById('review-list-container');
+        const list = document.getElementById('review-list');
+        if (solvedWords.length > 0) {
+          container.classList.remove('hidden');
+          list.innerHTML = solvedWords
+            .map(word => `<div class="review-list__item">${word}</div>`)
+            .join('');
+        } else {
+          container.classList.add('hidden');
+        }
+      }
+
+      /**
+       * Reset game to tier selection
+       */
+      function reset() {
+        currentDifficulty = null;
+        currentWord = '';
+        scrambledWord = '';
+        attemptsRemaining = 0;
+        currentScore = 0;
+        maxScore = 0;
+        wordsSolved = 0;
+        lastWordIndex = -1;
+        gameOver = false;
+        inputMode = 'tier';
+        revealedIndices = [];
+        solvedWords = [];
+
+        document.getElementById('tier-screen').classList.remove('hidden');
+        document.getElementById('play-screen').classList.add('hidden');
+        document.getElementById('game-over-screen').classList.add('hidden');
+        hideFeedback();
+      }
+
+      /**
+       * Filter keydown events for letter-only input
+       */
+      function setupInputFilter() {
+        const input = document.getElementById('guess-input');
+
+        input.addEventListener('keydown', function(e) {
+          // Allow: backspace, delete, tab, escape, enter
+          const allowedKeys = [
+            'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+            'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+            'Home', 'End'
+          ];
+
+          if (allowedKeys.includes(e.key)) return;
+
+          // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+          if (e.ctrlKey || e.metaKey) {
+            if (['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return;
+          }
+
+          // Allow letters only (both cases)
+          if ((e.key >= 'a' && e.key <= 'z') || (e.key >= 'A' && e.key <= 'Z')) return;
+
+          // Block all other keys
+          e.preventDefault();
+        });
+      }
+
+      /**
+       * Initialize the game
+       */
+      function init() {
+        setupInputFilter();
+      }
+
+      // Expose game API for testing
+      window.game = {
+        setDifficulty,
+        getTargetWord: function() { return currentWord; },
+        getCurrentWord: function() { return scrambledWord; },
+        getAttemptsRemaining: function() { return attemptsRemaining; },
+        useHint: function() { return useHint(); },
+        getRevealedIndices: function() { return revealedIndices.slice(); },
+        getSolvedWords: function() { return solvedWords.slice(); },
+        makeGuess: function(guess) {
+          // Simulate guess for testing
+          if (guess.toLowerCase() === currentWord.toLowerCase()) {
+            currentScore++;
+            if (currentScore > maxScore) maxScore = currentScore;
+            wordsSolved++;
+            solvedWords.push(currentWord.toUpperCase());
+            currentWord = getRandomWord();
+            scrambledWord = shuffleWord(currentWord);
+            attemptsRemaining = currentWord.length + 2;
+            revealedIndices = [];
+            return true;
+          }
+          attemptsRemaining--;
+          return false;
+        },
+        getScore: function() { return currentScore; },
+        getMaxScore: function() { return maxScore; },
+        reset,
+        handleGuess
+      };
+
+      // Start when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>
