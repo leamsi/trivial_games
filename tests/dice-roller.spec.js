@@ -99,6 +99,7 @@ test.describe('Dice Roller Game', () => {
     // 3s tumble + 0.5s settle + 4s fallback + 1.5s delay = ~9s max
     await page.locator('#lose-screen').waitFor({ state: 'visible', timeout: 10000 });
     await expect(page.locator('#lose-screen')).toBeVisible();
+    await expect(page.locator('#dice-container')).toBeVisible();
     await expect(page.locator('.lose-screen__title')).toContainText('lost');
   });
 

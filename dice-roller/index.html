@@ -72,7 +72,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: var(--spacing-lg);
+      gap: 40px;
       margin: var(--spacing-xl) 0;
       min-height: 140px;
     }
@@ -126,21 +126,21 @@
     .die__face--3 .die__dot:nth-child(3)::before,
     .die__face--3 .die__dot:nth-child(5)::before,
     .die__face--3 .die__dot:nth-child(7)::before,
-    .die__face--4 .die__dot:nth-child(2)::before,
+    .die__face--4 .die__dot:nth-child(1)::before,
     .die__face--4 .die__dot:nth-child(3)::before,
     .die__face--4 .die__dot:nth-child(7)::before,
-    .die__face--4 .die__dot:nth-child(8)::before,
-    .die__face--5 .die__dot:nth-child(2)::before,
+    .die__face--4 .die__dot:nth-child(9)::before,
+    .die__face--5 .die__dot:nth-child(1)::before,
     .die__face--5 .die__dot:nth-child(3)::before,
     .die__face--5 .die__dot:nth-child(5)::before,
     .die__face--5 .die__dot:nth-child(7)::before,
-    .die__face--5 .die__dot:nth-child(8)::before,
-    .die__face--6 .die__dot:nth-child(2)::before,
+    .die__face--5 .die__dot:nth-child(9)::before,
+    .die__face--6 .die__dot:nth-child(1)::before,
     .die__face--6 .die__dot:nth-child(3)::before,
-    .die__face--6 .die__dot:nth-child(5)::before,
+    .die__face--6 .die__dot:nth-child(4)::before,
     .die__face--6 .die__dot:nth-child(6)::before,
     .die__face--6 .die__dot:nth-child(7)::before,
-    .die__face--6 .die__dot:nth-child(8)::before {
+    .die__face--6 .die__dot:nth-child(9)::before {
       content: '';
       display: block;
       width: 16px;
@@ -158,36 +158,6 @@
     .die__face--left    { transform: rotateY(-90deg) translateZ(40px); }
     .die__face--top     { transform: rotateX(90deg)  translateZ(40px); }
     .die__face--bottom  { transform: rotateX(-90deg) translateZ(40px); }
-
-    /* Face grid areas for dot positions */
-    .die__face--1 { grid-template-areas: ". . ." ". dot ." ". . ."; }
-    .die__face--1 .die__dot { grid-area: dot; }
-    .die__face--2 { grid-template-areas: ". . dot" ". . ." "dot . ."; }
-    .die__face--2 .die__dot:nth-child(3) { grid-area: 1 / 3; }
-    .die__face--2 .die__dot:nth-child(7) { grid-area: 3 / 1; }
-    .die__face--3 { grid-template-areas: ". . dot" ". dot ." "dot . ."; }
-    .die__face--3 .die__dot:nth-child(3) { grid-area: 1 / 3; }
-    .die__face--3 .die__dot:nth-child(5) { grid-area: 2 / 2; }
-    .die__face--3 .die__dot:nth-child(7) { grid-area: 3 / 1; }
-    .die__face--4 { grid-template-areas: "dot dot" ". ." "dot dot"; }
-    .die__face--4 .die__dot:nth-child(2) { grid-area: 1 / 1; }
-    .die__face--4 .die__dot:nth-child(3) { grid-area: 1 / 2; }
-    .die__face--4 .die__dot:nth-child(7) { grid-area: 3 / 1; }
-    .die__face--4 .die__dot:nth-child(8) { grid-area: 3 / 2; }
-    .die__face--5 { grid-template-areas: "dot dot dot" ". . ." "dot dot dot"; }
-    .die__face--5 .die__dot { visibility: hidden; }
-    .die__face--5 .die__dot:nth-child(2),
-    .die__face--5 .die__dot:nth-child(3),
-    .die__face--5 .die__dot:nth-child(7),
-    .die__face--5 .die__dot:nth-child(8) { visibility: visible; }
-    .die__face--6 { grid-template-areas: "dot dot" "dot dot" "dot dot"; }
-    .die__face--6 .die__dot { visibility: hidden; }
-    .die__face--6 .die__dot:nth-child(2),
-    .die__face--6 .die__dot:nth-child(3),
-    .die__face--6 .die__dot:nth-child(5),
-    .die__face--6 .die__dot:nth-child(6),
-    .die__face--6 .die__dot:nth-child(7),
-    .die__face--6 .die__dot:nth-child(8) { visibility: visible; }
 
     /* 3s multi-axis tumble animation */
     @keyframes die-tumble {
@@ -217,13 +187,12 @@
     }
 
     /* Show face N — set final resting rotation for that face */
-    /* Front face (face 1) — default resting state */
-    .die.show-1 { transform: rotateX(-90deg) rotateY(0deg); }
-    .die.show-2 { transform: rotateX(-90deg) rotateY(-90deg); }
-    .die.show-3 { transform: rotateX(-90deg) rotateY(0deg); }
-    .die.show-4 { transform: rotateX(-90deg) rotateY(90deg); }
-    .die.show-5 { transform: rotateX(-90deg) rotateY(180deg); }
-    .die.show-6 { transform: rotateX(0deg) rotateY(0deg); }
+    .die.show-1 { transform: rotateX(0deg) rotateY(0deg); }
+    .die.show-2 { transform: rotateX(0deg) rotateY(180deg); }
+    .die.show-3 { transform: rotateX(0deg) rotateY(-90deg); }
+    .die.show-4 { transform: rotateX(0deg) rotateY(90deg); }
+    .die.show-5 { transform: rotateX(-90deg) rotateY(0deg); }
+    .die.show-6 { transform: rotateX(90deg) rotateY(0deg); }
 
     .roll-result {
       font-family: var(--font-heading);
@@ -980,7 +949,6 @@
        */
       function showLoseScreen() {
         gamePhase = 'gameover';
-        document.getElementById('dice-container').style.display = 'none';
         document.getElementById('sum-selection').style.display = 'none';
         document.getElementById('roll-result').style.display = 'none';
         document.getElementById('play-again-btn').style.display = 'none';
