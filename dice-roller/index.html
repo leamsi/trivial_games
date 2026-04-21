@@ -159,8 +159,8 @@
     .die__face--top     { transform: rotateX(90deg)  translateZ(40px); }
     .die__face--bottom  { transform: rotateX(-90deg) translateZ(40px); }
 
-    /* 3s multi-axis tumble animation */
-    @keyframes die-tumble {
+    /* 3s multi-axis tumble animation for Die 1 */
+    @keyframes die-tumble-1 {
       0%   { transform: rotateX(0deg)   rotateY(0deg)   rotateZ(0deg); }
       10%  { transform: rotateX(60deg)  rotateY(90deg)   rotateZ(45deg); }
       20%  { transform: rotateX(120deg) rotateY(180deg)  rotateZ(90deg); }
@@ -174,16 +174,43 @@
       100% { transform: rotateX(600deg) rotateY(900deg)  rotateZ(450deg); }
     }
 
-    /* 0.5s settle animation */
-    @keyframes die-settle {
+    /* 3s multi-axis tumble animation for Die 2 */
+    @keyframes die-tumble-2 {
+      0%   { transform: rotateX(0deg)   rotateY(0deg)   rotateZ(0deg); }
+      10%  { transform: rotateX(-40deg) rotateY(120deg)  rotateZ(-30deg); }
+      20%  { transform: rotateX(-80deg) rotateY(240deg)  rotateZ(-60deg); }
+      30%  { transform: rotateX(-120deg) rotateY(360deg)  rotateZ(-90deg); }
+      40%  { transform: rotateX(-160deg) rotateY(480deg)  rotateZ(-120deg); }
+      50%  { transform: rotateX(-200deg) rotateY(600deg)  rotateZ(-150deg); }
+      60%  { transform: rotateX(-240deg) rotateY(720deg)  rotateZ(-180deg); }
+      70%  { transform: rotateX(-280deg) rotateY(840deg)  rotateZ(-210deg); }
+      80%  { transform: rotateX(-320deg) rotateY(960deg)  rotateZ(-240deg); }
+      90%  { transform: rotateX(-360deg) rotateY(1080deg) rotateZ(-270deg); }
+      100% { transform: rotateX(-420deg) rotateY(1200deg) rotateZ(-300deg); }
+    }
+
+    /* 0.5s settle animation for Die 1 */
+    @keyframes die-settle-1 {
       0%   { transform: rotateX(600deg) rotateY(900deg) rotateZ(450deg); }
       40%  { transform: rotateX(625deg) rotateY(920deg) rotateZ(465deg); }
       70%  { transform: rotateX(615deg) rotateY(910deg) rotateZ(455deg); }
       100% { transform: rotateX(620deg) rotateY(915deg) rotateZ(458deg); }
     }
 
-    .die.rolling {
-      animation: die-tumble 3s linear, die-settle 0.5s ease-out 3s;
+    /* 0.5s settle animation for Die 2 */
+    @keyframes die-settle-2 {
+      0%   { transform: rotateX(-420deg) rotateY(1200deg) rotateZ(-300deg); }
+      40%  { transform: rotateX(-400deg) rotateY(1220deg) rotateZ(-280deg); }
+      70%  { transform: rotateX(-410deg) rotateY(1210deg) rotateZ(-290deg); }
+      100% { transform: rotateX(-415deg) rotateY(1215deg) rotateZ(-295deg); }
+    }
+
+    #die-1.rolling {
+      animation: die-tumble-1 3s cubic-bezier(0.2, 0, 0.2, 1), die-settle-1 0.5s ease-out 3s;
+    }
+
+    #die-2.rolling {
+      animation: die-tumble-2 3s cubic-bezier(0.2, 0, 0.2, 1), die-settle-2 0.5s ease-out 3s;
     }
 
     /* Show face N — set final resting rotation for that face */
