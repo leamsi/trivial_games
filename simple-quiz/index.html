@@ -326,6 +326,7 @@
     var shuffledQuestions = [];
     var reviewItems = [];
     var validQuestions = validateQuestions();
+    var sessionPool = [];
 
     // ── DOM refs ────────────────────────────────────────────────────────────
     var startScreen = document.getElementById('start-screen');
@@ -400,11 +401,28 @@
     }
 
     // ── implementation ────────────────────────────────────────────────────────
+    function pickQuestions() {
+      if (sessionPool.length < 10) {
+        sessionPool = shuffle(validQuestions.map(function(_, i) { return i; }));
+      }
+      var selectedIndices = sessionPool.splice(0, 10);
+      return selectedIndices.map(function(idx) {
+        var q = validQuestions[idx];
+        var correctText = q.answers[q.correct];
+        var shuffledAns = shuffle(q.answers);
+        return {
+          question: q.question,
+          answers: shuffledAns,
+          correct: shuffledAns.indexOf(correctText)
+        };
+      });
+    }
+
     function startGame() {
       score = 0;
       currentIndex = 0;
       reviewItems = [];
-      shuffledQuestions = shuffle(validQuestions).slice(0, 10);
+      shuffledQuestions = pickQuestions();
       renderQuestion();
       showScreen('quiz');
     }
@@ -438,7 +456,7 @@
       score = 0;
       currentIndex = 0;
       reviewItems = [];
-      shuffledQuestions = shuffle(validQuestions).slice(0, 10);
+      shuffledQuestions = pickQuestions();
       renderQuestion();
       showScreen('quiz');
       // sessionBest intentionally preserved across rounds
@@ -449,6 +467,7 @@
       sessionBest = 0;
       currentIndex = 0;
       reviewItems = [];
+      sessionPool = [];
       showScreen('start');
     }
 
