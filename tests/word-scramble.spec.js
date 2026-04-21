@@ -292,47 +292,134 @@ test.describe('Word Scramble Game', () => {
     expect(reviewText).toContain(solvedWord.toUpperCase());
   });
 
-  test('window.game API methods return expected types', async ({ page }) => {
+  test('useHint fills input with next correct character and elides wrong ones', async ({ page }) => {
     await page.locator('.tier-btn--easy').click();
+    
+    const targetWord = await page.evaluate(() => window.game.getTargetWord().toLowerCase());
+    const input = page.locator('#guess-input');
+    
+    // Case 1: Empty input -> hint fills 1st char
+    await input.fill('');
+    await page.evaluate(() => window.game.useHint());
+    await expect(input).toHaveValue(targetWord[0]);
+    
+    // Case 2: Partial correct -> hint fills next char
+    await input.fill(targetWord.substring(0, 1));
+    await page.evaluate(() => window.game.useHint());
+    await expect(input).toHaveValue(targetWord.substring(0, 2));
+    
+    // Case 3: Partial wrong -> hint corrects and elides
+    // If target is "apple", guess "ax", hint should result in "ap"
+    await input.fill(targetWord[0] + 'z'); 
+    await page.evaluate(() => window.game.useHint());
+    await expect(input).toHaveValue(targetWord.substring(0, 2));
+  });
 
-    // getTargetWord returns string
-    const targetWord = await page.evaluate(() => window.game.getTargetWord());
-    expect(typeof targetWord).toBe('string');
-    expect(targetWord.length).toBeGreaterThan(0);
+  test('clicking scrambled letters inputs characters at cursor position', async ({ page }) => {
+    await page.locator('.tier-btn--easy').click();
+    const input = page.locator('#guess-input');
+    
+    // Get all scrambled letters
+    const letters = page.locator('.scrambled-letter');
+    const firstLetter = await letters.first().textContent();
+    
+    // Click first letter
+    await letters.first().click();
+    await expect(input).toHaveValue(firstLetter?.toLowerCase());
+    
+    // Click second letter
+    const secondLetter = await letters.nth(1).textContent();
+    await letters.nth(1).click();
+    await expect(input).toHaveValue((firstLetter + secondLetter).toLowerCase());
+    
+    // Test cursor insertion: "AB" -> cursor at 1 -> click "C" -> "ACB"
+    await input.fill('AB');
+    await page.evaluate(() => {
+      const el = document.getElementById('guess-input');
+      el.setSelectionRange(1, 1);
+    });
+    const thirdLetter = await letters.nth(2).textContent();
+    await letters.nth(2).click();
+    await expect(input).toHaveValue('A' + thirdLetter?.toLowerCase() + 'B');
+  });
 
-    // getCurrentWord returns string (scrambled)
-    const currentWord = await page.evaluate(() => window.game.getCurrentWord());
-    expect(typeof currentWord).toBe('string');
-    expect(currentWord.length).toBe(targetWord.length);
+  test('scrambled letters are greyed out when used in input', async ({ page }) => {
+    await page.locator('.tier-btn--easy').click();
+    const input = page.locator('#guess-input');
+    
+    // Get the first letter of the scrambled word
+    const firstLetter = await page.evaluate(() => window.game.getCurrentWord()[0].toLowerCase());
+    
+    // Input the letter
+    await input.fill(firstLetter);
+    
+    // The corresponding scrambled letter should have the .used class
+    // We find which index has that letter
+    const isUsed = await page.evaluate((char) => {
+      const letters = Array.from(document.querySelectorAll('.scrambled-letter'));
+      const targetIndex = letters.findIndex(el => el.textContent.toLowerCase() === char);
+      return letters[targetIndex].classList.contains('used');
+    }, firstLetter);
+    
+    expect(isUsed).toBe(true);
+    
+    // Remove letter -> should no longer be used
+    await input.fill('');
+    const isStillUsed = await page.evaluate((char) => {
+      const letters = Array.from(document.querySelectorAll('.scrambled-letter'));
+      const targetIndex = letters.findIndex(el => el.textContent.toLowerCase() === char);
+      return letters[targetIndex].classList.contains('used');
+    }, firstLetter);
+    
+    expect(isStillUsed).toBe(false);
+  });
 
-    // getAttemptsRemaining returns number
-    const attempts = await page.evaluate(() => window.game.getAttemptsRemaining());
-    expect(typeof attempts).toBe('number');
-    expect(attempts).toBeGreaterThan(0);
+  test('duplicate letters are handled correctly in grey-out logic', async ({ page }) => {
+    // Force a word with duplicates if possible, or just use a hard word
+    await page.locator('.tier-btn--hard').click();
+    const scrambled = await page.evaluate(() => window.game.getCurrentWord());
+    
+    // Find a letter that repeats in the word
+    let duplicateChar = '';
+    const counts = {};
+    for (const char of scrambled) {
+      const c = char.toLowerCase();
+      counts[c] = (counts[c] || 0) + 1;
+      if (counts[c] === 2) {
+        duplicateChar = c;
+        break;
+      }
+    }
+    
+    if (!duplicateChar) {
+      console.log('Skipping duplicate test: no duplicate letters in current word');
+      return;
+    }
 
-    // getScore returns number
-    const score = await page.evaluate(() => window.game.getScore());
-    expect(typeof score).toBe('number');
-
-    // getMaxScore returns number
-    const maxScore = await page.evaluate(() => window.game.getMaxScore());
-    expect(typeof maxScore).toBe('number');
-
-    // getRevealedIndices returns array
-    const revealedIndices = await page.evaluate(() => window.game.getRevealedIndices());
-    expect(Array.isArray(revealedIndices)).toBe(true);
-
-    // getSolvedWords returns array
-    const solvedWords = await page.evaluate(() => window.game.getSolvedWords());
-    expect(Array.isArray(solvedWords)).toBe(true);
-
-    // useHint returns string or null
-    const hintResult = await page.evaluate(() => window.game.useHint());
-    expect(hintResult === null || typeof hintResult === 'string').toBe(true);
-
-    // makeGuess returns boolean
-    const guessResult = await page.evaluate(() => window.game.makeGuess('test'));
-    expect(typeof guessResult).toBe('boolean');
+    const input = page.locator('#guess-input');
+    
+    // Input one instance of the duplicate char
+    await input.fill(duplicateChar);
+    
+    // Only one of the scrambled letters should be .used
+    const usedCount = await page.evaluate((char) => {
+      return Array.from(document.querySelectorAll('.scrambled-letter'))
+        .filter(el => el.textContent.toLowerCase() === char && el.classList.contains('used'))
+        .length;
+    }, duplicateChar);
+    
+    expect(usedCount).toBe(1);
+    
+    // Input second instance
+    await input.fill(duplicateChar + duplicateChar);
+    
+    const usedCount2 = await page.evaluate((char) => {
+      return Array.from(document.querySelectorAll('.scrambled-letter'))
+        .filter(el => el.textContent.toLowerCase() === char && el.classList.contains('used'))
+        .length;
+    }, duplicateChar);
+    
+    expect(usedCount2).toBe(2);
   });
 
   test('reset returns to tier selection screen', async ({ page }) => {

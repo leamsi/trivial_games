@@ -84,6 +84,15 @@
       box-shadow: var(--glow-neon-cyan);
     }
 
+    .scrambled-letter.used {
+      color: var(--color-text-muted);
+      border-color: var(--color-text-muted);
+      text-shadow: none;
+      box-shadow: none;
+      opacity: 0.5;
+      cursor: default;
+    }
+
     .guess-form {
       display: flex;
       flex-direction: column;
@@ -343,29 +352,78 @@
       }
 
       /**
-       * Use a hint to reveal a random unrevealed letter (costs 2 attempts).
-       * Returns the revealed letter or null if no hint is available.
+       * Use a hint to reveal the next correct character in the sequence.
+       * Costs 2 attempts.
        */
       function useHint() {
         if (attemptsRemaining < 2) return null;
 
-        const availableIndices = [];
-        for (let i = 0; i < scrambledWord.length; i++) {
-          if (!revealedIndices.includes(i)) {
-            availableIndices.push(i);
+        const input = document.getElementById('guess-input');
+        const currentGuess = input.value.trim().toLowerCase();
+        const target = currentWord.toLowerCase();
+
+        // Find first index where guess differs from target
+        let firstWrongIndex = -1;
+        for (let i = 0; i < target.length; i++) {
+          if (i >= currentGuess.length || currentGuess[i] !== target[i]) {
+            firstWrongIndex = i;
+            break;
           }
         }
 
-        if (availableIndices.length === 0) return null;
+        if (firstWrongIndex === -1) return null; // Word already complete
 
-        const chosenIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-        revealedIndices.push(chosenIndex);
+        const charToReveal = target[firstWrongIndex];
+
+        // Find a scrambled letter index that matches charToReveal and isn't already revealed
+        let revealedIndex = -1;
+        for (let i = 0; i < scrambledWord.length; i++) {
+          if (scrambledWord[i].toLowerCase() === charToReveal && !revealedIndices.includes(i)) {
+            revealedIndex = i;
+            break;
+          }
+        }
+
+        // If all occurrences of this letter are already revealed, we can't "reveal" it again,
+        // but we can still fill the input.
+        if (revealedIndex !== -1) {
+          revealedIndices.push(revealedIndex);
+        }
+
         attemptsRemaining -= 2;
-
+        
+        // Fill input up to the revealed character
+        input.value = target.substring(0, firstWrongIndex + 1);
+        
+        // Manually trigger input event so that updateLetterUsage() is called
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        
         updateScrambledDisplay();
         updateStats();
 
-        return scrambledWord[chosenIndex].toUpperCase();
+        return charToReveal.toUpperCase();
+      }
+
+      /**
+       * Handle clicking a scrambled letter to input it
+       */
+      function handleLetterClick(index) {
+        if (gameOver || inputMode !== 'play') return;
+
+        const input = document.getElementById('guess-input');
+        const letter = scrambledWord[index].toLowerCase();
+        
+        // Insert letter at current cursor position
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const text = input.value;
+        input.value = text.slice(0, start) + letter + text.slice(end);
+        
+        // Set cursor position after the inserted letter
+        input.selectionStart = input.selectionEnd = start + 1;
+        input.focus();
+        
+        updateLetterUsage();
       }
 
       /**
@@ -414,10 +472,47 @@
         for (let i = 0; i < scrambledWord.length; i++) {
           const letter = scrambledWord[i].toUpperCase();
           const revealedClass = revealedIndices.includes(i) ? ' revealed' : '';
-          html += `<span class="scrambled-letter${revealedClass}">${letter}</span>`;
+          html += `<span class="scrambled-letter${revealedClass}" data-index="${i}" onclick="game.handleLetterClick(${i})">${letter}</span>`;
         }
 
         container.innerHTML = html;
+        updateLetterUsage();
+      }
+
+      /**
+       * Grey out letters that are already used in the current guess
+       */
+      function updateLetterUsage() {
+        const input = document.getElementById('guess-input');
+        const guess = input.value.toLowerCase();
+        const letters = document.querySelectorAll('.scrambled-letter');
+        
+        // Count occurrences of each letter in the guess
+        const counts = {};
+        for (const char of guess) {
+          counts[char] = (counts[char] || 0) + 1;
+        }
+
+        // We need to know which scrambled indices are "consumed"
+        // We'll go through the target word (or just scrambled) and mark them
+        const usedIndices = new Set();
+        const tempCounts = { ...counts };
+
+        for (let i = 0; i < scrambledWord.length; i++) {
+          const char = scrambledWord[i].toLowerCase();
+          if (tempCounts[char] > 0) {
+            usedIndices.add(i);
+            tempCounts[char]--;
+          }
+        }
+
+        letters.forEach((el, idx) => {
+          if (usedIndices.has(idx)) {
+            el.classList.add('used');
+          } else {
+            el.classList.remove('used');
+          }
+        });
       }
 
       /**
@@ -484,11 +579,15 @@
             scrambledWord = shuffleWord(currentWord);
             attemptsRemaining = currentWord.length + 2;
             revealedIndices = [];
+            
+            // Clear input BEFORE updating display to avoid stale "used" letters
+            const inputEl = document.getElementById('guess-input');
+            inputEl.value = '';
+            
             updateScrambledDisplay();
             updateStats();
             hideFeedback();
-            input.value = '';
-            input.focus();
+            inputEl.focus();
           }, 1500);
         } else if (attemptsRemaining <= 0) {
           // Game over
@@ -578,6 +677,10 @@
           // Block all other keys
           e.preventDefault();
         });
+
+        input.addEventListener('input', function() {
+          updateLetterUsage();
+        });
       }
 
       /**
@@ -596,6 +699,7 @@
         useHint: function() { return useHint(); },
         getRevealedIndices: function() { return revealedIndices.slice(); },
         getSolvedWords: function() { return solvedWords.slice(); },
+        handleLetterClick,
         makeGuess: function(guess) {
           // Simulate guess for testing
           if (guess.toLowerCase() === currentWord.toLowerCase()) {
