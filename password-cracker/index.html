@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Cracker — Trivial Games</title>
+  <link rel="stylesheet" href="../common/style.css">
+  <style>
+    /* Game-specific styles */
+    .guess-container {
+      margin: var(--spacing-lg) 0;
+    }
+
+    .digit-inputs {
+      display: flex;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .digit-input {
+      width: 50px;
+      height: 60px;
+      text-align: center;
+      font-size: var(--font-size-2xl);
+      padding: 0;
+    }
+
+    .check-btn {
+      width: 100%;
+      max-width: 200px;
+      margin: 0 auto;
+    }
+
+    .check-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+      border-color: var(--color-border);
+    }
+
+    .history {
+      margin-top: var(--spacing-xl);
+      text-align: left;
+      max-height: 400px;
+      overflow-y: auto;
+      padding-right: var(--spacing-sm);
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--spacing-sm) 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .history-item__guess-boxes {
+      display: flex;
+      gap: 6px;
+    }
+
+    .history-item__digit {
+      width: 30px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--color-secondary);
+      border: 2px solid var(--neon-cyan);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-heading);
+      font-size: 0.75rem;
+      color: var(--color-text);
+      box-shadow: var(--glow-neon-cyan);
+    }
+
+    .history-item__result {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+      margin-left: var(--spacing-md);
+    }
+
+    .right-place { color: var(--neon-green); }
+    .wrong-place { color: var(--neon-yellow); }
+
+    .win-screen, .lose-screen {
+      text-align: center;
+      padding: var(--spacing-xl);
+    }
+
+    .win-screen__emoji {
+      font-size: 4rem;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .win-screen__title {
+      color: var(--color-success);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .lose-screen__title {
+      color: var(--color-warning);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .answer-display {
+      font-family: var(--font-heading);
+      font-size: var(--font-size-2xl);
+      color: var(--neon-pink);
+      margin: var(--spacing-lg) 0;
+      letter-spacing: 4px;
+    }
+
+    .guesses-remaining {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+      margin-bottom: var(--spacing-md);
+    }
+
+    #confetti-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    /* Scrollbar styling for history */
+    .history::-webkit-scrollbar {
+      width: 6px;
+    }
+    .history::-webkit-scrollbar-track {
+      background: var(--color-bg);
+    }
+    .history::-webkit-scrollbar-thumb {
+      background: var(--color-secondary);
+      border-radius: var(--radius-full);
+    }
+  </style>
+</head>
+<body>
+  <button class="btn restart-btn" onclick="game.restart()" aria-label="Restart game">
+    ↻ Restart
+  </button>
+
+  <a href="../index.html" class="back-link">← Back to Trivial Games</a>
+
+  <main class="game-card" id="game-container">
+    <h1 class="game-card__title">🕵️ Password Cracker</h1>
+    <p class="text-muted">Guess the 5-digit secret code. No duplicate digits!</p>
+
+    <div id="game-play-area">
+      <div class="guesses-remaining" id="guesses-remaining">Guesses left: 30</div>
+
+      <div class="guess-container">
+        <div class="digit-inputs" id="digit-inputs">
+          <input type="text" class="input digit-input" maxlength="1" inputmode="numeric" aria-label="Digit 1">
+          <input type="text" class="input digit-input" maxlength="1" inputmode="numeric" aria-label="Digit 2">
+          <input type="text" class="input digit-input" maxlength="1" inputmode="numeric" aria-label="Digit 3">
+          <input type="text" class="input digit-input" maxlength="1" inputmode="numeric" aria-label="Digit 4">
+          <input type="text" class="input digit-input" maxlength="1" inputmode="numeric" aria-label="Digit 5">
+        </div>
+        <button id="check-btn" class="btn btn--primary check-btn" onclick="game.handleCheck()" disabled>Check</button>
+      </div>
+
+      <div id="feedback-area" class="feedback animate-fade-in" style="display: none;"></div>
+
+      <div class="history" id="history">
+        <!-- History items will be added here -->
+      </div>
+    </div>
+
+    <div class="win-screen" id="win-screen" style="display: none;">
+      <div class="win-screen__emoji">🎉</div>
+      <h2 class="win-screen__title">Access Granted!</h2>
+      <p id="win-message"></p>
+      <button class="btn btn--success" onclick="game.restart()">Play Again</button>
+    </div>
+
+    <div class="lose-screen" id="lose-screen" style="display: none;">
+      <h2 class="lose-screen__title">Access Denied!</h2>
+      <p>The code was:</p>
+      <div class="answer-display" id="correct-code"></div>
+      <button class="btn btn--primary" onclick="game.restart()">Try Again</button>
+    </div>
+  </main>
+
+  <canvas id="confetti-canvas"></canvas>
+
+  <script>
+    (function() {
+      'use strict';
+
+      const MAX_GUESSES = 30;
+      const DIGIT_COUNT = 5;
+
+      let secretCode = [];
+      let guessesRemaining = MAX_GUESSES;
+      let gameOver = false;
+
+      const digitInputs = Array.from(document.querySelectorAll('.digit-input'));
+      const checkBtn = document.getElementById('check-btn');
+      const historyContainer = document.getElementById('history');
+      const feedbackArea = document.getElementById('feedback-area');
+      const guessesRemainingDisplay = document.getElementById('guesses-remaining');
+
+      function generateSecretCode() {
+        const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        const secret = [];
+        for (let i = 0; i < DIGIT_COUNT; i++) {
+          const randomIndex = Math.floor(Math.random() * digits.length);
+          secret.push(digits[randomIndex]);
+          digits.splice(randomIndex, 1);
+        }
+        return secret;
+      }
+
+      function updateCheckButtonState() {
+        const allFilled = digitInputs.every(input => input.value.length === 1);
+        checkBtn.disabled = !allFilled || gameOver;
+      }
+
+      function handleInput(e, index) {
+        const val = e.target.value;
+        if (!/^\d$/.test(val)) {
+          e.target.value = '';
+        } else {
+          if (index < DIGIT_COUNT - 1) {
+            digitInputs[index + 1].focus();
+          }
+        }
+        updateCheckButtonState();
+      }
+
+      function handleKeyDown(e, index) {
+        if (e.key === 'Backspace' && !e.target.value && index > 0) {
+          digitInputs[index - 1].focus();
+        } else if (e.key === 'Enter' && !checkBtn.disabled) {
+          handleCheck();
+        }
+      }
+
+      function handleCheck() {
+        if (gameOver) return;
+
+        const guess = digitInputs.map(input => parseInt(input.value, 10));
+        guessesRemaining--;
+
+        const result = calculateFeedback(guess, secretCode);
+        addHistoryItem(guess, result);
+
+        if (result.rightPlace === DIGIT_COUNT) {
+          win();
+        } else if (guessesRemaining <= 0) {
+          lose();
+        } else {
+          guessesRemainingDisplay.textContent = `Guesses left: ${guessesRemaining}`;
+          feedbackArea.textContent = `${result.wrongPlace} right number wrong place, ${result.rightPlace} right number right place`;
+          feedbackArea.className = 'feedback feedback--hint animate-fade-in';
+          feedbackArea.style.display = 'block';
+
+          // Clear inputs and focus first
+          digitInputs.forEach(input => input.value = '');
+          digitInputs[0].focus();
+          updateCheckButtonState();
+        }
+      }
+
+      function calculateFeedback(guess, secret) {
+        let rightPlace = 0;
+        let wrongPlace = 0;
+
+        const secretCopy = [...secret];
+        const guessCopy = [...guess];
+
+        // First pass for right place
+        for (let i = 0; i < DIGIT_COUNT; i++) {
+          if (guessCopy[i] === secretCopy[i]) {
+            rightPlace++;
+            secretCopy[i] = null;
+            guessCopy[i] = null;
+          }
+        }
+
+        // Second pass for wrong place
+        for (let i = 0; i < DIGIT_COUNT; i++) {
+          if (guessCopy[i] !== null) {
+            const index = secretCopy.indexOf(guessCopy[i]);
+            if (index !== -1) {
+              wrongPlace++;
+              secretCopy[index] = null;
+            }
+          }
+        }
+
+        return { rightPlace, wrongPlace };
+      }
+
+      function addHistoryItem(guess, result) {
+        const item = document.createElement('div');
+        item.className = 'history-item animate-fade-in';
+
+        let guessHtml = '<div class="history-item__guess-boxes">';
+        guess.forEach(digit => {
+          guessHtml += `<span class="history-item__digit">${digit}</span>`;
+        });
+        guessHtml += '</div>';
+
+        item.innerHTML = `
+          ${guessHtml}
+          <span class="history-item__result">
+            <span class="right-place">${result.rightPlace} Right</span>,
+            <span class="wrong-place">${result.wrongPlace} Wrong</span>
+          </span>
+        `;
+        historyContainer.prepend(item);
+      }
+
+      function win() {
+        gameOver = true;
+        document.getElementById('game-play-area').style.display = 'none';
+        const winScreen = document.getElementById('win-screen');
+        const attempts = MAX_GUESSES - guessesRemaining;
+        document.getElementById('win-message').textContent = `Correct! You cracked it in ${attempts} ${attempts === 1 ? 'try' : 'tries'}.`;
+        winScreen.style.display = 'block';
+        celebrate();
+      }
+
+      function lose() {
+        gameOver = true;
+        document.getElementById('game-play-area').style.display = 'none';
+        const loseScreen = document.getElementById('lose-screen');
+        document.getElementById('correct-code').textContent = secretCode.join(' ');
+        loseScreen.style.display = 'block';
+      }
+
+      function restart() {
+        secretCode = generateSecretCode();
+        guessesRemaining = MAX_GUESSES;
+        gameOver = false;
+
+        document.getElementById('game-play-area').style.display = 'block';
+        document.getElementById('win-screen').style.display = 'none';
+        document.getElementById('lose-screen').style.display = 'none';
+        feedbackArea.style.display = 'none';
+
+        guessesRemainingDisplay.textContent = `Guesses left: ${guessesRemaining}`;
+        historyContainer.innerHTML = '';
+
+        digitInputs.forEach(input => {
+          input.value = '';
+          input.disabled = false;
+        });
+
+        updateCheckButtonState();
+        digitInputs[0].focus();
+      }
+
+      // Confetti logic (borrowed and adapted from other games)
+      function launchConfetti() {
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const particles = [];
+        const colors = ['#e94560', '#4ecca3', '#ffc107', '#0f3460', '#fff'];
+        for (let i = 0; i < 150; i++) {
+          particles.push({
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            vx: (Math.random() - 0.5) * 20,
+            vy: (Math.random() - 0.5) * 20 - 10,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            size: Math.random() * 8 + 4,
+            rotation: Math.random() * 360,
+            rotationSpeed: (Math.random() - 0.5) * 10,
+            life: 1
+          });
+        }
+
+        function animate() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          let alive = false;
+          particles.forEach(p => {
+            if (p.life <= 0) return;
+            alive = true;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.5;
+            p.rotation += p.rotationSpeed;
+            p.life -= 0.01;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation * Math.PI / 180);
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+            ctx.restore();
+          });
+          if (alive) requestAnimationFrame(animate);
+          else canvas.style.display = 'none';
+        }
+        canvas.style.display = 'block';
+        animate();
+      }
+
+      function celebrate() {
+        try { launchConfetti(); } catch (e) { console.warn('Confetti failed'); }
+      }
+
+      // Initialize
+      digitInputs.forEach((input, index) => {
+        input.addEventListener('input', (e) => handleInput(e, index));
+        input.addEventListener('keydown', (e) => handleKeyDown(e, index));
+      });
+
+      // Expose for testing
+      window.game = {
+        restart,
+        reset: restart,
+        handleCheck,
+        setTarget: (code) => { secretCode = code; },
+        getTarget: () => secretCode
+      };
+
+      restart();
+    })();
+  </script>
+</body>
+</html>
