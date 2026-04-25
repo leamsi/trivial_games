@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hangman — Trivial Games</title>
+  <link rel="stylesheet" href="../common/style.css">
+  <style>
+    /* Game-specific styles */
+    .gallows-container {
+      margin: var(--spacing-lg) 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .gallows-svg {
+      width: 160px;
+      height: 200px;
+    }
+
+    .gallows-svg line, .gallows-svg circle, .gallows-svg path {
+      stroke: var(--neon-cyan);
+      stroke-width: 4;
+      fill: none;
+      stroke-linecap: round;
+      filter: drop-shadow(var(--glow-neon-cyan));
+    }
+
+    .man-part {
+      display: none;
+      stroke: var(--neon-pink) !important;
+      filter: drop-shadow(var(--glow-neon-pink)) !important;
+    }
+
+    .word-display {
+      display: flex;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      margin: var(--spacing-xl) 0;
+      flex-wrap: wrap;
+    }
+
+    .letter-slot {
+      width: 2rem;
+      height: 2.5rem;
+      border-bottom: 3px solid var(--neon-green);
+      font-family: var(--font-heading);
+      font-size: var(--font-size-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--neon-green);
+      text-shadow: var(--glow-neon-green);
+    }
+
+    .alphabet {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
+      gap: var(--spacing-xs);
+      margin-top: var(--spacing-lg);
+      max-width: 100%;
+    }
+
+    .alphabet-key {
+      padding: var(--spacing-xs);
+      font-family: var(--font-heading);
+      font-size: 0.6rem;
+      color: var(--color-text-muted);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      text-align: center;
+      cursor: default;
+      user-select: none;
+    }
+
+    .alphabet-key--guessed {
+      color: var(--color-bg);
+      background-color: var(--color-border);
+      text-decoration: line-through;
+      border-color: transparent;
+    }
+
+    .alphabet-key--correct {
+      color: var(--neon-green);
+      border-color: var(--neon-green);
+      box-shadow: var(--glow-neon-green);
+    }
+
+    .alphabet-key--wrong {
+      color: var(--color-primary);
+      border-color: var(--color-primary);
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
+
+    .input-container {
+      margin: var(--spacing-md) 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .letter-input {
+      width: 60px;
+      text-align: center;
+      text-transform: uppercase;
+      font-family: var(--font-heading);
+      font-size: var(--font-size-lg);
+    }
+
+    .win-screen, .lose-screen {
+      text-align: center;
+      padding: var(--spacing-xl);
+    }
+
+    .win-screen__emoji, .lose-screen__emoji {
+      font-size: 4rem;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .win-screen__title {
+      color: var(--color-success);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .lose-screen__title {
+      color: var(--color-warning);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .lose-screen__reveal {
+      font-family: var(--font-heading);
+      font-size: var(--font-size-base);
+      color: var(--neon-pink);
+      margin: var(--spacing-md) 0;
+    }
+
+    /* Confetti canvas overlay */
+    #confetti-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <!-- Always visible restart button -->
+  <button class="btn restart-btn" onclick="game.restart()" aria-label="Restart game">
+    ↻ Restart
+  </button>
+
+  <!-- Back to game list -->
+  <a href="../index.html" class="back-link">← Back to Trivial Games</a>
+
+  <main class="game-card" id="game-container">
+    <h1 class="game-card__title">💀 HANGMAN</h1>
+
+    <!-- Gallows Display -->
+    <div class="gallows-container">
+      <svg class="gallows-svg" viewBox="0 0 160 200">
+        <!-- Gallows Structure -->
+        <line x1="20" y1="180" x2="140" y2="180" /> <!-- Base -->
+        <line x1="40" y1="180" x2="40" y2="20" />  <!-- Post -->
+        <line x1="40" y1="20" x2="110" y2="20" />  <!-- Beam -->
+        <line x1="40" y1="50" x2="70" y2="20" />  <!-- Brace -->
+
+        <!-- Hanging Man (to be shown one by one) -->
+        <line id="man-rope" class="man-part" x1="110" y1="20" x2="110" y2="50" /> <!-- Step 1: Rope -->
+        <circle id="man-head" class="man-part" cx="110" cy="65" r="15" />        <!-- Step 2: Head -->
+        <line id="man-torso" class="man-part" x1="110" y1="80" x2="110" y2="130" /> <!-- Step 3: Torso -->
+        <line id="man-arm-l" class="man-part" x1="110" y1="95" x2="85" y2="115" /> <!-- Step 4: Left Arm -->
+        <line id="man-arm-r" class="man-part" x1="110" y1="95" x2="135" y2="115" /> <!-- Step 5: Right Arm -->
+        <line id="man-leg-l" class="man-part" x1="110" y1="130" x2="90" y2="165" /> <!-- Step 6: Left Leg -->
+        <line id="man-leg-r" class="man-part" x1="110" y1="130" x2="130" y2="165" /> <!-- Step 7: Right Leg -->
+      </svg>
+    </div>
+
+    <!-- Word Display -->
+    <div class="word-display" id="word-display"></div>
+
+    <!-- Alphabet Keys -->
+    <div class="alphabet" id="alphabet"></div>
+
+    <!-- Input for mobile/keyboard focus -->
+    <div class="input-container" id="input-container">
+      <input type="text" id="letter-input" class="input letter-input" maxlength="1" autocomplete="off" placeholder="?">
+    </div>
+
+    <!-- Win Screen -->
+    <div class="win-screen" id="win-screen" style="display: none;">
+      <div class="win-screen__emoji">🎉</div>
+      <h2 class="win-screen__title">YOU SURVIVED!</h2>
+      <p class="text-muted mb-lg">The word was guessed correctly.</p>
+      <button class="btn btn--success" onclick="game.restart()">PLAY AGAIN</button>
+    </div>
+
+    <!-- Lose Screen -->
+    <div class="lose-screen" id="lose-screen" style="display: none;">
+      <div class="lose-screen__emoji">💀</div>
+      <h2 class="lose-screen__title">GAME OVER</h2>
+      <p class="text-muted">The secret word was:</p>
+      <div class="lose-screen__reveal" id="lose-reveal"></div>
+      <button class="btn btn--primary" onclick="game.restart()">TRY AGAIN</button>
+    </div>
+  </main>
+
+  <!-- Confetti canvas -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <script>
+    (function() {
+      'use strict';
+
+      /* --- WORD LIST START --- */
+      const WORDS = [
+        'ARCADE', 'NEBULAS', 'PIXELS', 'CYBERPUNK', 'RETRO',
+        'SYNTHWAVE', 'GALACTIC', 'CONSOLE', 'JOYSTICK', 'BITCOIN',
+        'MATRIX', 'VIRTUAL', 'QUANTUM', 'PHANTOM', 'SPECTRE',
+        'CHIPSETS', 'PIXELART', 'BITSTREAM', 'DATABASE', 'MAINFRAME',
+        'FIREWALL', 'PROTOCOL', 'OVERLOAD', 'TERMINAL', 'EMULATOR'
+      ];
+      /* --- WORD LIST END --- */
+
+      const MAN_PARTS = [
+        'man-rope', 'man-head', 'man-torso',
+        'man-arm-l', 'man-arm-r', 'man-leg-l', 'man-leg-r'
+      ];
+
+      let secretWord = '';
+      let guessedLetters = new Set();
+      let wrongGuesses = 0;
+      let gameOver = false;
+
+      function init() {
+        createAlphabet();
+        setupInput();
+        restart();
+      }
+
+      function createAlphabet() {
+        const container = document.getElementById('alphabet');
+        container.innerHTML = '';
+        for (let i = 65; i <= 90; i++) {
+          const letter = String.fromCharCode(i);
+          const key = document.createElement('div');
+          key.className = 'alphabet-key';
+          key.id = `key-${letter}`;
+          key.textContent = letter;
+          container.appendChild(key);
+        }
+      }
+
+      function setupInput() {
+        const input = document.getElementById('letter-input');
+
+        // Focus input on any click to ensure keyboard works
+        document.addEventListener('click', () => {
+          if (!gameOver) input.focus();
+        });
+
+        input.addEventListener('input', (e) => {
+          const char = e.target.value.toUpperCase();
+          e.target.value = '';
+          if (char.match(/[A-Z]/)) {
+            handleGuess(char);
+          }
+        });
+
+        // Global keydown support
+        document.addEventListener('keydown', (e) => {
+          if (gameOver) return;
+          const char = e.key.toUpperCase();
+          if (char.length === 1 && char.match(/[A-Z]/)) {
+            handleGuess(char);
+          }
+        });
+      }
+
+      function handleGuess(letter) {
+        if (gameOver || guessedLetters.has(letter)) return;
+
+        guessedLetters.add(letter);
+
+        const key = document.getElementById(`key-${letter}`);
+        if (secretWord.includes(letter)) {
+          if (key) key.classList.add('alphabet-key--correct');
+          updateWordDisplay();
+          checkWin();
+        } else {
+          if (key) key.classList.add('alphabet-key--wrong');
+          wrongGuesses++;
+          updateMan();
+          checkLoss();
+        }
+      }
+
+      function updateWordDisplay() {
+        const container = document.getElementById('word-display');
+        container.innerHTML = '';
+        secretWord.split('').forEach(letter => {
+          const slot = document.createElement('div');
+          slot.className = 'letter-slot';
+          slot.textContent = guessedLetters.has(letter) ? letter : '';
+          container.appendChild(slot);
+        });
+      }
+
+      function updateMan() {
+        for (let i = 0; i < wrongGuesses && i < MAN_PARTS.length; i++) {
+          document.getElementById(MAN_PARTS[i]).style.display = 'block';
+        }
+      }
+
+      function checkWin() {
+        const won = secretWord.split('').every(l => guessedLetters.has(l));
+        if (won) {
+          gameOver = true;
+          showWinScreen();
+        }
+      }
+
+      function checkLoss() {
+        if (wrongGuesses >= MAN_PARTS.length) {
+          gameOver = true;
+          showLoseScreen();
+        }
+      }
+
+      function showWinScreen() {
+        document.getElementById('alphabet').style.display = 'none';
+        document.getElementById('input-container').style.display = 'none';
+        document.getElementById('win-screen').style.display = 'block';
+        celebrate();
+      }
+
+      function showLoseScreen() {
+        document.getElementById('alphabet').style.display = 'none';
+        document.getElementById('input-container').style.display = 'none';
+        document.getElementById('lose-reveal').textContent = secretWord;
+        document.getElementById('lose-screen').style.display = 'block';
+      }
+
+      function restart() {
+        secretWord = WORDS[Math.floor(Math.random() * WORDS.length)];
+        guessedLetters = new Set();
+        wrongGuesses = 0;
+        gameOver = false;
+
+        // Reset UI
+        document.getElementById('alphabet').style.display = 'grid';
+        document.getElementById('input-container').style.display = 'flex';
+        document.getElementById('win-screen').style.display = 'none';
+        document.getElementById('lose-screen').style.display = 'none';
+
+        document.querySelectorAll('.alphabet-key').forEach(key => {
+          key.className = 'alphabet-key';
+        });
+
+        MAN_PARTS.forEach(id => {
+          document.getElementById(id).style.display = 'none';
+        });
+
+        updateWordDisplay();
+        document.getElementById('letter-input').focus();
+      }
+
+      // --- Confetti System ---
+      function launchConfetti() {
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const particles = [];
+        const colors = ['#e94560', '#4ecca3', '#ffc107', '#00ff41', '#ff00de', '#00e5ff'];
+        for (let i = 0; i < 150; i++) {
+          particles.push({
+            x: canvas.width / 2, y: canvas.height / 2,
+            vx: (Math.random() - 0.5) * 20, vy: (Math.random() - 0.5) * 20 - 10,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            size: Math.random() * 8 + 4, rotation: Math.random() * 360,
+            rotationSpeed: (Math.random() - 0.5) * 10, life: 1
+          });
+        }
+        function animate() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          let alive = false;
+          particles.forEach(p => {
+            if (p.life <= 0) return;
+            alive = true;
+            p.x += p.vx; p.y += p.vy; p.vy += 0.5; p.rotation += p.rotationSpeed; p.life -= 0.01;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rotation * Math.PI / 180);
+            ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size); ctx.restore();
+          });
+          if (alive) requestAnimationFrame(animate);
+          else canvas.style.display = 'none';
+        }
+        canvas.style.display = 'block';
+        animate();
+      }
+
+      function celebrate() {
+        try { launchConfetti(); } catch (e) { console.warn('Confetti failed'); }
+      }
+
+      // --- Testability API ---
+      window.game = {
+        setTarget: (word) => {
+          secretWord = word.toUpperCase();
+          guessedLetters = new Set();
+          wrongGuesses = 0;
+          gameOver = false;
+
+          // Reset UI for the new target
+          document.getElementById('alphabet').style.display = 'grid';
+          document.getElementById('input-container').style.display = 'flex';
+          document.getElementById('win-screen').style.display = 'none';
+          document.getElementById('lose-screen').style.display = 'none';
+          document.querySelectorAll('.alphabet-key').forEach(key => {
+            key.className = 'alphabet-key';
+          });
+          MAN_PARTS.forEach(id => {
+            document.getElementById(id).style.display = 'none';
+          });
+
+          updateWordDisplay();
+        },
+        getTarget: () => secretWord,
+        restart: restart,
+        reset: restart,
+        guess: (letter) => handleGuess(letter.toUpperCase())
+      };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>
