@@ -10,7 +10,7 @@ Working on this codebase? Start here.
 - **CDN dependencies:** Google Fonts (Press Start 2P, VT323), canvas-confetti (optional, graceful fallback exists)
 - **Testing:** Playwright with `webServer` config — `npx playwright test` starts serve automatically
 - **CSS:** Shared `/common/style.css` imported via `../common/style.css` relative path. All games use CSS variables from this file.
-- **Testability:** Each game exposes a `window.game` object with `setTarget(n)`, `getTarget()`, `reset()` for Playwright control
+- **Testability:** Each game exposes a `window.game` object with `setTarget(n)`, `getTarget()`, `reset()` for Playwright control. For complex games like `text-adventure`, this object also includes `executeCommand(cmd)`, `getCurrentRoom()`, and `getInventory()`.
 
 ## Build and Test Commands
 
@@ -96,6 +96,9 @@ npx playwright test -g "no console errors"
 ```
 
 ## Technical Patterns
+
+### Testing Complex Games (Text Adventure Example)
+For games with complex state or randomization, `setTarget(n)` should set the random seed to ensure deterministic behavior during tests. `getTarget()` returns the current seed. Additionally, exposing methods like `executeCommand(cmd)` allows Playwright to interact with the game engine directly, bypassing the need for complex DOM interactions for every step.
 
 ### CSS 3D coin flip animation
 Use CSS 3D transforms for flip animations: `.coin-scene { perspective: 600px }` container,
