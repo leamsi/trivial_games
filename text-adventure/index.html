@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Terminal Adventure - Trivial Games</title>
+    <link rel="stylesheet" href="../common/style.css">
+    <style>
+        :root {
+            --terminal-bg: #050510;
+            --terminal-text: var(--neon-green);
+        }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--terminal-text);
+            font-family: var(--font-body);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding-top: 60px;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .terminal-container {
+            width: 100%;
+            max-width: 800px;
+            height: 70vh;
+            background-color: var(--terminal-bg);
+            border: 2px solid var(--neon-cyan);
+            border-radius: var(--radius-md);
+            box-shadow: var(--glow-neon-cyan);
+            display: flex;
+            flex-direction: column;
+            padding: var(--spacing-md);
+            position: relative;
+            margin-bottom: var(--spacing-md);
+        }
+
+        #terminal-history {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: var(--spacing-sm);
+            padding-right: var(--spacing-sm);
+            scrollbar-width: thin;
+            scrollbar-color: var(--neon-cyan) var(--terminal-bg);
+        }
+
+        #terminal-history::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #terminal-history::-webkit-scrollbar-thumb {
+            background-color: var(--neon-cyan);
+            border-radius: var(--radius-full);
+        }
+
+        .input-line {
+            display: flex;
+            align-items: center;
+            font-size: var(--font-size-lg);
+        }
+
+        .prompt {
+            margin-right: var(--spacing-sm);
+            color: var(--neon-pink);
+            user-select: none;
+        }
+
+        #user-input {
+            background: transparent;
+            border: none;
+            color: var(--terminal-text);
+            font-family: var(--font-body);
+            font-size: var(--font-size-lg);
+            outline: none;
+            flex-grow: 1;
+            width: 0;
+        }
+
+        .cursor {
+            width: 10px;
+            height: 1.2em;
+            background-color: var(--terminal-text);
+            display: inline-block;
+            animation: blink 1s step-end infinite;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            from, to { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .button-container {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-sm);
+            justify-content: center;
+            padding: var(--spacing-md);
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+        }
+
+        .action-btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-size: 0.7rem; /* VT323 is small but Press Start 2P is huge, .btn in common/style.css uses 0.5rem */
+        }
+
+        .history-entry {
+            margin-bottom: var(--spacing-xs);
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+
+        .history-command {
+            color: var(--neon-pink);
+            font-weight: bold;
+        }
+
+        .history-response {
+            color: var(--terminal-text);
+        }
+
+        .system-msg {
+            color: var(--neon-yellow);
+        }
+
+        .error-msg {
+            color: var(--color-primary);
+        }
+
+        .inventory-panel {
+            position: absolute;
+            top: var(--spacing-md);
+            right: var(--spacing-md);
+            background: rgba(18, 18, 42, 0.8);
+            border: 1px solid var(--neon-pink);
+            padding: var(--spacing-sm);
+            font-size: 0.9rem;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        @media (max-width: 600px) {
+            .terminal-container {
+                height: 50vh;
+            }
+            .button-container {
+                padding: var(--spacing-sm);
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-link">← Back to Trivial Games</a>
+
+    <div class="terminal-container" id="terminal-click-area">
+        <div id="terminal-history"></div>
+        <div class="input-line">
+            <span class="prompt">></span>
+            <input type="text" id="user-input" autofocus autocomplete="off" spellcheck="false">
+            <span class="cursor"></span>
+        </div>
+        <div class="inventory-panel" id="inventory-display" style="display: none;">
+            Inventory: Empty
+        </div>
+    </div>
+
+    <div class="button-container" id="button-container">
+        <!-- Buttons will be injected here -->
+    </div>
+
+    <script>
+        'use strict';
+        (function() {
+            /* WORD LIST START */
+            const ROOM_NAMES = [
+                "Dusty Library", "Cold Cellar", "Dimly Lit Hallway", "Overgrown Conservatory",
+                "Abandoned Armory", "Damp Dungeon", "Echoing Great Hall", "Narrow Crawlspace",
+                "Grand Dining Room", "Quiet Study", "Stone Corridor", "Musty Basement"
+            ];
+            const PUZZLE_HINTS = [
+                "The books seem to be arranged oddly.",
+                "A faint scratching comes from behind the wall.",
+                "The air is thick with mystery.",
+                "You feel like you're being watched."
+            ];
+            /* WORD LIST END */
+
+            const DIRECTIONS = ['north', 'east', 'south', 'west'];
+            const OPPOSITE_DIRECTION = {
+                'north': 'south',
+                'east': 'west',
+                'south': 'north',
+                'west': 'east'
+            };
+
+            class Room {
+                constructor(id, name) {
+                    this.id = id;
+                    this.name = name;
+                    this.description = "";
+                    this.exits = {}; // direction -> Room
+                    this.items = [];
+                    this.objects = []; // Interactive objects like "shelf", "desk"
+                    this.puzzle = null;
+                    this.isLocked = false;
+                    this.isEscapeDoor = false;
+                    this.hasMasterKey = false;
+                    this.visited = false;
+                }
+
+                addExit(direction, room) {
+                    this.exits[direction] = room;
+                }
+
+                describe() {
+                    let desc = `[ ${this.name} ]\n${this.description}\n`;
+
+                    if (this.objects.length > 0) {
+                        desc += `You see: ${this.objects.map(o => o.name).join(', ')}.\n`;
+                    }
+
+                    if (this.items.length > 0) {
+                        desc += `On the floor, you see: ${this.items.map(i => i.name).join(', ')}.\n`;
+                    }
+
+                    const exitList = Object.keys(this.exits);
+                    if (exitList.length > 0) {
+                        desc += `Exits: ${exitList.join(', ')}.\n`;
+                    }
+
+                    return desc;
+                }
+            }
+
+            class Game {
+                constructor(seed) {
+                    this.seed = seed || Math.floor(Math.random() * 1000000);
+                    this.random = this.seededRandom(this.seed);
+                    this.rooms = [];
+                    this.currentRoom = null;
+                    this.inventory = [];
+                    this.history = [];
+                    this.gameOver = false;
+                    this.startTime = Date.now();
+                    this.gasWarningTriggered = false;
+                    this.timerInterval = null;
+                    this.puzzles = [];
+                    this.masterKeyFound = false;
+                    this.awaitingCode = false;
+
+                    this.setupUI();
+                    this.generateMap();
+                    this.startGasTimer();
+                    this.displayInitialMessage();
+                }
+
+                seededRandom(seed) {
+                    return function() {
+                        seed = (seed * 9301 + 49297) % 233280;
+                        return seed / 233280;
+                    };
+                }
+
+                setupUI() {
+                    this.historyEl = document.getElementById('terminal-history');
+                    this.inputEl = document.getElementById('user-input');
+                    this.btnContainer = document.getElementById('button-container');
+                    this.invDisplay = document.getElementById('inventory-display');
+                    this.clickArea = document.getElementById('terminal-click-area');
+
+                    this.inputEl.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            const cmd = this.inputEl.value.trim();
+                            if (cmd) {
+                                this.executeCommand(cmd);
+                                this.inputEl.value = '';
+                            }
+                        }
+                    });
+
+                    this.inputEl.addEventListener('input', () => {
+                        this.updateButtons();
+                    });
+
+                    this.clickArea.addEventListener('click', () => {
+                        this.inputEl.focus();
+                    });
+                }
+
+                generateMap() {
+                    const roomCount = 8 + Math.floor(this.random() * 3);
+                    const rooms = [];
+                    for (let i = 0; i < roomCount; i++) {
+                        const name = ROOM_NAMES[i % ROOM_NAMES.length] + (i >= ROOM_NAMES.length ? ` ${Math.floor(i/ROOM_NAMES.length) + 1}` : "");
+                        rooms.push(new Room(i, name));
+                    }
+
+                    this.rooms = rooms;
+                    const startRoom = rooms[0];
+                    startRoom.description = "You wake up in a stone room. A scroll is nailed to the wall.";
+                    startRoom.objects.push({
+                        name: "scroll",
+                        description: "INSTRUCTIONS: Find the Master Key. Unlock the Escape Door. Beware of traps. Move using 'go [direction]'. Interact with 'search', 'open', 'take', 'use'. Be quick, the air might not last forever."
+                    });
+
+                    const puzzlePool = ['shelf', 'keypad', 'dark', 'guard', 'pedestal'];
+                    const shuffledPuzzles = this.shuffle([...puzzlePool]);
+                    const selectedPuzzles = shuffledPuzzles.slice(0, 2);
+
+                    const tryAddRoom = (fromRoom, toRoom) => {
+                        const dirs = this.shuffle([...DIRECTIONS]);
+                        for (let d of dirs) {
+                            if (!fromRoom.exits[d] && !toRoom.exits[OPPOSITE_DIRECTION[d]]) {
+                                fromRoom.addExit(d, toRoom);
+                                toRoom.addExit(OPPOSITE_DIRECTION[d], fromRoom);
+                                return true;
+                            }
+                        }
+                        return false;
+                    };
+
+                    const p1Idx = 2;
+                    const p2Idx = 4;
+                    const keyIdx = 7;
+
+                    for (let i = 0; i < rooms.length - 1; i++) {
+                        tryAddRoom(rooms[i], rooms[i+1]);
+                    }
+
+                    this.assignPuzzle(rooms[p1Idx], selectedPuzzles[0]);
+                    this.assignPuzzle(rooms[p2Idx], selectedPuzzles[1]);
+
+                    const keyRoom = rooms[keyIdx] || rooms[rooms.length - 1];
+                    keyRoom.hasMasterKey = true;
+                    keyRoom.description = "This room is small and sterile.";
+                    keyRoom.items.push({ name: "Master Key", description: "A heavy, golden key that seems to fit any lock." });
+
+                    const possibleEscapeIndices = rooms.map((r, i) => i).filter(i => i !== 0 && i !== p1Idx && i !== p2Idx && i !== keyIdx);
+                    const escapeIdx = possibleEscapeIndices[Math.floor(this.random() * possibleEscapeIndices.length)];
+                    const escapeRoom = rooms[escapeIdx];
+                    escapeRoom.isEscapeDoor = true;
+                    escapeRoom.description += " A massive iron door with 'EXIT' carved into it stands here.";
+                    escapeRoom.objects.push({ name: "iron door", type: "exit_door" });
+
+                    this.placePuzzleItems(selectedPuzzles, rooms, p1Idx, p2Idx);
+
+                    const trapIdx = rooms.findIndex(r => r.items.length === 0 && r.objects.length === 0 && r !== startRoom && !r.puzzle);
+                    if (trapIdx !== -1) {
+                        rooms[trapIdx].objects.push({
+                            name: "golden lever",
+                            type: "trap",
+                            description: "A shiny golden lever sticking out of the wall. There is a faded warning sign below it."
+                        });
+                        rooms[trapIdx].description += " You notice a peculiar golden lever on the wall.";
+                    }
+
+                    rooms.forEach(r => {
+                        if (!r.description) {
+                            r.description = "The walls are made of cold stone. " + PUZZLE_HINTS[Math.floor(this.random() * PUZZLE_HINTS.length)];
+                        }
+                    });
+
+                    this.currentRoom = startRoom;
+                    this.currentRoom.visited = true;
+                    this.updateInventoryDisplay();
+                    this.updateButtons();
+                }
+
+                assignPuzzle(room, type, order) {
+                    room.puzzle = { type, solved: false };
+                    if (type === 'shelf') {
+                        room.description = "A massive bookshelf covers the north wall.";
+                        room.objects.push({ name: "bookshelf", type: "shelf" });
+                        // Puzzle: search bookshelf -> unlocks exit
+                        this.lockExits(room, order);
+                    } else if (type === 'keypad') {
+                        room.description = "The door ahead has a digital keypad glowing with a red light.";
+                        room.objects.push({ name: "keypad", type: "keypad" });
+                        this.lockExits(room, order);
+                    } else if (type === 'dark') {
+                        room.description = "It's pitch black in here. You can't see a thing!";
+                        room.isDark = true;
+                        this.lockExits(room, order);
+                    } else if (type === 'guard') {
+                        room.description = "A stone golem stands guard here, blocking the way.";
+                        room.objects.push({ name: "golem", type: "guard" });
+                        this.lockExits(room, order);
+                    } else if (type === 'pedestal') {
+                        room.description = "A heavy stone door is open, but it looks like it's held by a pressure plate on a pedestal.";
+                        room.objects.push({ name: "pedestal", type: "pedestal" });
+                        // If they leave without placing something, it closes? No, let's make it: door is CLOSED, need to place something on pedestal to open.
+                        room.description = "A stone door is tightly shut. Beside it is a circular pedestal.";
+                        this.lockExits(room, order);
+                    }
+                }
+
+                lockExits(room, order) {
+                    // Lock all exits that lead further into the path (towards key)
+                    // For this simple generator, we'll just say the door to the "next" room in index is locked
+                    room.puzzle.lockedDirection = DIRECTIONS.find(d => room.exits[d] && room.exits[d].id > room.id);
+                }
+
+                placePuzzleItems(selectedPuzzles, rooms, p1Idx, p2Idx) {
+                    selectedPuzzles.forEach((type, i) => {
+                        const puzzleRoomIdx = i === 0 ? p1Idx : p2Idx;
+                        // Place item in a room BEFORE the puzzle room
+                        const possibleRooms = rooms.filter(r => r.id < puzzleRoomIdx);
+                        const targetRoom = possibleRooms[Math.floor(this.random() * possibleRooms.length)];
+
+                        if (type === 'keypad') {
+                            targetRoom.objects.push({
+                                name: "desk",
+                                type: "container",
+                                items: [{ name: "note", description: "It says: B A F D" }]
+                            });
+                        } else if (type === 'dark') {
+                            targetRoom.items.push({ name: "lantern", description: "An old oil lantern. It still has some fuel." });
+                        } else if (type === 'guard') {
+                            targetRoom.items.push({
+                                name: "letter",
+                                description: "A strange letter: 'The Great Gate Only Let Entering Master. Secrets Pass Any Castle Key Only Don't Enter.'"
+                                // 3rd words: Only, Let, Master, Secrets, Castle, Only -> O L M S C O ... wait
+                                // "Each third word has its first letter in uppercase"
+                                // Let's craft: "In the Dark, Only small Light Matters. Some Shadows Creep Over."
+                                // 3rd words: Only, Light, Matters, Shadows, Creep, Over. First letters: O L M S C O.
+                                // Actually let's make it simpler: "The First Secret Code Word Is GHOST."
+                                // "Every third word has its first letter in Uppercase."
+                                // "the wall Has some Writing which is hidden Under the thick Paint." -> H W U P?
+                                // "use the Red button Once for Every Door." -> R O E D.
+                            });
+                            // Override description for the letter
+                            targetRoom.items.find(it => it.name === "letter").description = "The letter reads: 'you must Use the Red button Once for Every Door.'";
+                            // 3rd: Use, Red, Once, Every, Door. -> U R O E D. Let's make it "ROSE".
+                            targetRoom.items.find(it => it.name === "letter").description = "The letter reads: 'To enter, Read Only Some Entries.'";
+                            // Actually I'll just use "ROSE" as the code and make a better sentence.
+                            targetRoom.items.find(it => it.name === "letter").content = "find the Red flower, Only Small Everytime."; // R O S E
+                        } else if (type === 'pedestal') {
+                            targetRoom.items.push({ name: "heavy statue", description: "A small but incredibly heavy lead statue." });
+                        }
+                    });
+                }
+
+                shuffle(array) {
+                    for (let i = array.length - 1; i > 0; i--) {
+                        const j = Math.floor(this.random() * (i + 1));
+                        [array[i], array[j]] = [array[j], array[i]];
+                    }
+                    return array;
+                }
+
+                print(text, className = 'history-response') {
+                    const entry = document.createElement('div');
+                    entry.className = `history-entry ${className}`;
+                    entry.textContent = text;
+                    this.historyEl.appendChild(entry);
+                    this.historyEl.scrollTop = this.historyEl.scrollHeight;
+                }
+
+                executeCommand(cmd) {
+                    this.print(`> ${cmd}`, 'history-command');
+                    if (this.gameOver) {
+                        this.print("The game is over. Restart to play again.");
+                        return;
+                    }
+
+                    if (this.awaitingCode) {
+                        this.handleKeypadCode(cmd);
+                        this.awaitingCode = false;
+                        this.updateButtons();
+                        return;
+                    }
+
+                    const parts = cmd.toLowerCase().split(' ');
+                    const action = parts[0];
+                    const arg = parts.slice(1).join(' ');
+
+                    switch (action) {
+                        case 'go':
+                        case 'move':
+                            this.handleGo(arg);
+                            break;
+                        case 'look':
+                        case 'describe':
+                        case 'read':
+                            if (arg === 'around' || arg === 'room' || !arg) {
+                                this.print(this.currentRoom.describe());
+                            } else {
+                                this.handleLookAt(arg);
+                            }
+                            break;
+                        case 'take':
+                        case 'get':
+                            this.handleTake(arg);
+                            break;
+                        case 'search':
+                            this.handleSearch(arg);
+                            break;
+                        case 'use':
+                            this.handleUse(arg);
+                            break;
+                        case 'open':
+                            this.handleOpen(arg);
+                            break;
+                        case 'inventory':
+                        case 'i':
+                            this.showInventory();
+                            break;
+                        case 'say':
+                            this.handleSay(arg);
+                            break;
+                        case 'help':
+                            this.print("Commands: go [direction], look [object], take [item], search [object], use [item], open [object], say [word], inventory");
+                            break;
+                        default:
+                            this.print("I don't understand that command.");
+                    }
+                    this.updateButtons();
+                }
+
+                handleGo(direction) {
+                    if (!DIRECTIONS.includes(direction)) {
+                        this.print("Go where? (north, south, east, west)");
+                        return;
+                    }
+
+                    const nextRoom = this.currentRoom.exits[direction];
+                    if (!nextRoom) {
+                        this.print("You can't go that way.");
+                        return;
+                    }
+
+                    // Check if door is locked by puzzle
+                    if (this.currentRoom.puzzle && !this.currentRoom.puzzle.solved && this.currentRoom.puzzle.lockedDirection === direction) {
+                        this.print("The way is blocked! You need to solve the puzzle first.");
+                        return;
+                    }
+
+                    this.currentRoom = nextRoom;
+                    this.currentRoom.visited = true;
+                    this.print(`You move ${direction}.`);
+                    this.print(this.currentRoom.describe());
+
+                    if (this.currentRoom.isDark && !this.hasItem("lantern")) {
+                        this.print("It's too dark to see anything! You might stumble into something dangerous.");
+                    }
+                }
+
+                handleLookAt(arg) {
+                    const item = this.inventory.find(i => i.name.toLowerCase() === arg) ||
+                                 this.currentRoom.items.find(i => i.name.toLowerCase() === arg) ||
+                                 this.currentRoom.objects.find(o => o.name.toLowerCase() === arg);
+
+                    if (item) {
+                        if (item.content) {
+                            this.print(item.description + " " + item.content);
+                        } else {
+                            this.print(item.description || "It looks ordinary.");
+                        }
+                    } else {
+                        this.print("You don't see that here.");
+                    }
+                }
+
+                handleTake(arg) {
+                    const index = this.currentRoom.items.findIndex(i => i.name.toLowerCase() === arg);
+                    if (index !== -1) {
+                        const item = this.currentRoom.items.splice(index, 1)[0];
+                        this.inventory.push(item);
+                        this.print(`You took the ${item.name}.`);
+                        this.updateInventoryDisplay();
+                        if (item.name === "Master Key") this.masterKeyFound = true;
+                    } else {
+                        this.print("You can't take that.");
+                    }
+                }
+
+                handleSearch(arg) {
+                    const obj = this.currentRoom.objects.find(o => o.name.toLowerCase() === arg);
+                    if (!obj) {
+                        this.print("Search what?");
+                        return;
+                    }
+
+                    if (obj.type === 'shelf') {
+                        this.print("You search the bookshelf... You find a hidden switch! A door clicks open to the " + this.currentRoom.puzzle.lockedDirection + ".");
+                        this.currentRoom.puzzle.solved = true;
+                    } else if (obj.type === 'container') {
+                        if (obj.items && obj.items.length > 0) {
+                            this.print(`You search the ${obj.name} and find: ${obj.items.map(i => i.name).join(', ')}`);
+                            this.currentRoom.items.push(...obj.items);
+                            obj.items = [];
+                        } else {
+                            this.print(`The ${obj.name} is empty.`);
+                        }
+                    } else {
+                        this.print(`You search the ${obj.name} but find nothing of interest.`);
+                    }
+                }
+
+                handleUse(arg) {
+                    const item = this.inventory.find(i => i.name.toLowerCase() === arg);
+                    if (!item) {
+                        this.print("You don't have that.");
+                        return;
+                    }
+
+                    if (item.name === "lantern" && this.currentRoom.isDark) {
+                        this.print("You light the lantern. The room is now visible!");
+                        this.currentRoom.isDark = false;
+                        this.currentRoom.puzzle.solved = true;
+                        this.print(this.currentRoom.describe());
+                    } else if (item.name === "heavy statue" && this.currentRoom.puzzle && this.currentRoom.puzzle.type === 'pedestal') {
+                        this.print("You place the heavy statue on the pedestal. A door grinds open to the " + this.currentRoom.puzzle.lockedDirection + "!");
+                        this.currentRoom.puzzle.solved = true;
+                        // Remove from inventory
+                        this.inventory = this.inventory.filter(i => i !== item);
+                        this.updateInventoryDisplay();
+                    } else {
+                        this.print("You can't use that here.");
+                    }
+                }
+
+                handleOpen(arg) {
+                    const obj = this.currentRoom.objects.find(o => o.name.toLowerCase() === arg);
+                    if (!obj) {
+                        this.print("Open what?");
+                        return;
+                    }
+
+                    if (obj.type === 'exit_door') {
+                        if (this.hasItem("Master Key")) {
+                            this.win();
+                        } else {
+                            this.print("The door is locked. You need the Master Key.");
+                        }
+                    } else if (obj.type === 'keypad') {
+                        this.print("Enter 4-digit code:");
+                        this.awaitingCode = true;
+                    } else if (obj.type === 'trap') {
+                        this.print("You pull the lever... A trapdoor opens beneath you!");
+                        this.die("You fell into a pit of spikes.");
+                    } else {
+                        this.print("It won't open.");
+                    }
+                }
+
+                handleSay(arg) {
+                    const golem = this.currentRoom.objects.find(o => o.type === 'guard');
+                    if (golem) {
+                        if (arg.toLowerCase() === 'rose') {
+                            this.print("The golem nods and steps aside, revealing the way to the " + this.currentRoom.puzzle.lockedDirection + ".");
+                            this.currentRoom.puzzle.solved = true;
+                        } else {
+                            this.print("The golem remains motionless.");
+                        }
+                    } else {
+                        this.print(`You say "${arg}" but nothing happens.`);
+                    }
+                }
+
+                handleKeypadCode(code) {
+                    if (code === "2164") {
+                        this.print("Correct! The door to the " + this.currentRoom.puzzle.lockedDirection + " unlocks.");
+                        this.currentRoom.puzzle.solved = true;
+                    } else {
+                        this.print("Wrong code.");
+                    }
+                }
+
+                hasItem(name) {
+                    return this.inventory.some(i => i.name.toLowerCase() === name.toLowerCase());
+                }
+
+                showInventory() {
+                    if (this.inventory.length === 0) {
+                        this.print("Your inventory is empty.");
+                    } else {
+                        this.print("Inventory: " + this.inventory.map(i => i.name).join(', '));
+                    }
+                }
+
+                updateInventoryDisplay() {
+                    if (this.inventory.length > 0) {
+                        this.invDisplay.style.display = 'block';
+                        this.invDisplay.textContent = "Inv: " + this.inventory.map(i => i.name).join(', ');
+                    } else {
+                        this.invDisplay.style.display = 'none';
+                    }
+                }
+
+                updateButtons() {
+                    this.btnContainer.innerHTML = '';
+                    if (this.gameOver) {
+                        const sameMapBtn = document.createElement('button');
+                        sameMapBtn.className = 'btn action-btn';
+                        sameMapBtn.textContent = 'Play Same Map';
+                        sameMapBtn.onclick = () => this.restart(true);
+                        this.btnContainer.appendChild(sameMapBtn);
+
+                        const newMapBtn = document.createElement('button');
+                        newMapBtn.className = 'btn action-btn';
+                        newMapBtn.textContent = 'Play New Map';
+                        newMapBtn.onclick = () => this.restart(false);
+                        this.btnContainer.appendChild(newMapBtn);
+                        return;
+                    }
+
+                    if (this.awaitingCode) {
+                        // No specific buttons for code entry, let the user type numbers
+                        return;
+                    }
+
+                    // Contextual buttons
+                    const inputVal = this.inputEl.value.trim().toLowerCase();
+                    const words = inputVal.split(' ');
+                    const actionInInput = words[0];
+                    const possibleActions = ['go', 'look', 'take', 'search', 'use', 'open', 'say', 'inventory'];
+
+                    if (words.length >= 1 && possibleActions.includes(actionInInput) && this.inputEl.value.endsWith(' ')) {
+                        // Show argument buttons
+                        this.showArgumentButtons(actionInInput);
+                    } else {
+                        // Show main action buttons
+                        possibleActions.forEach(a => {
+                            const btn = document.createElement('button');
+                            btn.className = 'btn action-btn';
+                            btn.textContent = a.toUpperCase();
+                            btn.onclick = () => {
+                                if (a === 'inventory') {
+                                    this.executeCommand(a);
+                                } else {
+                                    this.inputEl.value = a + ' ';
+                                    this.inputEl.focus();
+                                    this.updateButtons();
+                                }
+                            };
+                            this.btnContainer.appendChild(btn);
+                        });
+                    }
+                }
+
+                showArgumentButtons(action) {
+                    let options = [];
+                    if (action === 'go' || action === 'move') {
+                        options = Object.keys(this.currentRoom.exits);
+                    } else if (action === 'look') {
+                        options = ['around', ...this.currentRoom.items.map(i => i.name), ...this.currentRoom.objects.map(o => o.name), ...this.inventory.map(i => i.name)];
+                    } else if (action === 'take' || action === 'get') {
+                        options = this.currentRoom.items.map(i => i.name);
+                    } else if (action === 'search' || action === 'open') {
+                        options = this.currentRoom.objects.map(o => o.name);
+                    } else if (action === 'use') {
+                        options = this.inventory.map(i => i.name);
+                    } else if (action === 'say') {
+                        // For 'say', maybe just leave it to typing or show a few hints if they have the letter
+                        if (this.hasItem('letter')) options = ['ROSE', 'GHOST', 'CODE'];
+                    }
+
+                    options.forEach(opt => {
+                        const btn = document.createElement('button');
+                        btn.className = 'btn action-btn';
+                        btn.textContent = opt.toUpperCase();
+                        btn.onclick = () => {
+                            this.executeCommand(`${action} ${opt}`);
+                            this.inputEl.value = '';
+                            this.updateButtons();
+                        };
+                        this.btnContainer.appendChild(btn);
+                    });
+
+                    const backBtn = document.createElement('button');
+                    backBtn.className = 'btn action-btn btn--primary';
+                    backBtn.textContent = 'BACK';
+                    backBtn.onclick = () => {
+                        this.inputEl.value = '';
+                        this.updateButtons();
+                    };
+                    this.btnContainer.appendChild(backBtn);
+                }
+
+                startGasTimer() {
+                    this.timerInterval = setInterval(() => {
+                        const elapsed = Date.now() - this.startTime;
+                        if (elapsed > 9 * 60 * 1000 && !this.gasWarningTriggered) {
+                            this.print("A pungent gas begins to fill the room... You have one minute!", 'system-msg');
+                            this.gasWarningTriggered = true;
+                        }
+                        if (elapsed > 10 * 60 * 1000 && !this.gameOver) {
+                            this.die("The gas filled your lungs. You can no longer breathe.");
+                        }
+                    }, 1000);
+                }
+
+                displayInitialMessage() {
+                    this.print("NEON TERMINAL ADVENTURE v1.0", 'system-msg');
+                    this.print("----------------------------", 'system-msg');
+                    this.print(this.currentRoom.describe());
+                }
+
+                win() {
+                    this.gameOver = true;
+                    clearInterval(this.timerInterval);
+                    this.print("YOU ESCAPED!", 'feedback--success');
+                    this.print("Congratulations! You managed to find the Master Key and escape the dungeon before the gas took you.", 'feedback--success');
+                    this.updateButtons();
+                }
+
+                die(reason) {
+                    this.gameOver = true;
+                    clearInterval(this.timerInterval);
+                    this.print("GAME OVER", 'error-msg');
+                    this.print(reason, 'error-msg');
+                    this.updateButtons();
+                }
+
+                restart(sameMap) {
+                    if (this.timerInterval) clearInterval(this.timerInterval);
+                    if (sameMap) {
+                        window.game.init(this.seed);
+                    } else {
+                        window.game.init();
+                    }
+                }
+            }
+
+            window.game = {
+                instance: null,
+                init: function(seed) {
+                    // Clear previous game state if any
+                    document.getElementById('terminal-history').innerHTML = '';
+                    document.getElementById('inventory-display').style.display = 'none';
+                    document.getElementById('user-input').value = '';
+
+                    this.instance = new Game(seed);
+                },
+                reset: function() {
+                    this.init();
+                },
+                executeCommand: function(cmd) {
+                    if (this.instance) this.instance.executeCommand(cmd);
+                },
+                getCurrentRoom: function() {
+                    return this.instance ? this.instance.currentRoom.name : null;
+                },
+                getInventory: function() {
+                    return this.instance ? this.instance.inventory.map(i => i.name) : [];
+                },
+                setTarget: function(seed) {
+                    this.init(seed);
+                },
+                getTarget: function() {
+                    return this.instance ? this.instance.seed : null;
+                }
+            };
+
+            window.game.init();
+
+        })();
+    </script>
+</body>
+</html>
